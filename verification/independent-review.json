@@ -1,0 +1,13 @@
+{
+  "workflow": "AMA",
+  "reviewers": [
+    "port_review",
+    "windows_accessibility"
+  ],
+  "unresolved_critical": 0,
+  "unresolved_major": 0,
+  "profile": "CapCut 9.5.0.4050",
+  "all_120_manifest_entries_verified": true,
+  "privacy_and_35_command_coverage_reviewed": true,
+  "documentation_findings_resolved": true
+}

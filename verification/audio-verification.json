@@ -1,0 +1,60 @@
+{
+  "AllKF": {
+    "sha256": "c090975d2ed8cca1712b67e5c07a6b47dc7f3eec0de8629c706370a69eef1a44",
+    "audio_fully_decoded": true,
+    "primary_audio_across_replay_cuts": true,
+    "overlay_muted": true,
+    "unmuted_positive_control": false,
+    "spectral_windows": [
+      {
+        "start_seconds": 0.2,
+        "primary_440hz_amplitude": 2878.8744539781096,
+        "overlay_880hz_amplitude": 0.1936285213826487
+      },
+      {
+        "start_seconds": 0.75,
+        "primary_440hz_amplitude": 2876.792690678018,
+        "overlay_880hz_amplitude": 0.15145646054297482
+      },
+      {
+        "start_seconds": 1.7,
+        "primary_440hz_amplitude": 2887.4871123693865,
+        "overlay_880hz_amplitude": 0.10813494173307012
+      },
+      {
+        "start_seconds": 2.5,
+        "primary_440hz_amplitude": 2890.781427547046,
+        "overlay_880hz_amplitude": 0.07315929890242825
+      }
+    ]
+  },
+  "FPS30": {
+    "sha256": "4ab325492e546d7cdee3e9fc51beae84846bdda378c7cd5c0ba9f6a1792ab650",
+    "audio_fully_decoded": true,
+    "primary_audio_across_replay_cuts": true,
+    "overlay_muted": false,
+    "unmuted_positive_control": true,
+    "spectral_windows": [
+      {
+        "start_seconds": 0.2,
+        "primary_440hz_amplitude": 2878.8744539781096,
+        "overlay_880hz_amplitude": 0.1936285213826487
+      },
+      {
+        "start_seconds": 0.75,
+        "primary_440hz_amplitude": 2878.1546519241497,
+        "overlay_880hz_amplitude": 2891.1026992444877
+      },
+      {
+        "start_seconds": 1.7,
+        "primary_440hz_amplitude": 2890.2923358240732,
+        "overlay_880hz_amplitude": 0.0755377640366888
+      },
+      {
+        "start_seconds": 2.5,
+        "primary_440hz_amplitude": 2890.783624185658,
+        "overlay_880hz_amplitude": 0.0731434720251301
+      }
+    ]
+  }
+}

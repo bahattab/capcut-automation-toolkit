@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.unlazy/
+.unlazy-hook-state.json
+projects/
+*.log
+!verification/tests.log
+test-results.xml
+capcut.png

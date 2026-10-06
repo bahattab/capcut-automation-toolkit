@@ -1,0 +1,9 @@
+{
+  "project": "AMA-WF-Clear-1006",
+  "native_open": true,
+  "expected_segment_timing_transform_keyframes_preserved": true,
+  "native_reopen": true,
+  "all_tracks_materials_canvas_fps_duration_preserved": true,
+  "finite_float_absolute_tolerance": 1e-12,
+  "integer_timings_exact": true
+}

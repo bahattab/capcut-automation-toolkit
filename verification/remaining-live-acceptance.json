@@ -1,0 +1,14 @@
+{
+  "production_cli": true,
+  "generic_key_split_saved": true,
+  "del_alias_saved": true,
+  "undo_all_tracks_exact": true,
+  "preceding_saved_effect_assertions_reached_long_open": true,
+  "long_seek_seconds": [
+    0,
+    75.25,
+    0
+  ],
+  "long_tracks_preserved": true,
+  "bounded_home_scrolling": true
+}

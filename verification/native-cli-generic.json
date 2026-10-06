@@ -1,0 +1,9 @@
+{
+  "version": "9.5.0.4050",
+  "production_cli": true,
+  "dump": true,
+  "click": true,
+  "clickxy": true,
+  "scroll_both_directions": true,
+  "all_tracks_preserved": true
+}

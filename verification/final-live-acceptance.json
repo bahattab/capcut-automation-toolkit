@@ -1,0 +1,11 @@
+{
+  "production_cli": true,
+  "installed_console_command": true,
+  "fps": 30,
+  "native_playhead_clips_state_shot": true,
+  "latest_ruler_native_seek": true,
+  "generic_key_split_saved": true,
+  "del_alias_saved": true,
+  "complete_tracks_restored_by_each_undo": true,
+  "final_paused_zero": true
+}

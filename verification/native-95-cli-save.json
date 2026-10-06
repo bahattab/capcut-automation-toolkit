@@ -1,0 +1,12 @@
+{
+  "production_cli": true,
+  "cli_exit_code": 0,
+  "save": {
+    "active_draft": "AMA-Windows-Test-1005",
+    "status": "native_autosave_confirmed",
+    "effect_verified": false,
+    "verification_scope": "autosave_record_and_primary_geometry",
+    "latest_full_state_verified": false
+  },
+  "baseline_tracks_preserved": true
+}

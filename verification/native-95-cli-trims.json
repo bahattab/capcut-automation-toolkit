@@ -1,0 +1,21 @@
+{
+  "version": "9.5.0.4050",
+  "production_cli": true,
+  "results": [
+    {
+      "command": "trim-left",
+      "native_saved_effect_verified": true,
+      "undo_all_tracks_restored": true
+    },
+    {
+      "command": "trim-right",
+      "native_saved_effect_verified": true,
+      "undo_all_tracks_restored": true
+    },
+    {
+      "command": "delete",
+      "native_saved_effect_verified": true,
+      "undo_all_tracks_restored": true
+    }
+  ]
+}

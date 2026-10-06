@@ -1,0 +1,53 @@
+{
+  "production_cli": true,
+  "marker": {
+    "success": true,
+    "result": {
+      "command": "marker",
+      "status": "dispatched",
+      "effect_verified": false
+    }
+  },
+  "undo": {
+    "success": true,
+    "result": {
+      "command": "undo",
+      "status": "dispatched",
+      "effect_verified": false
+    }
+  },
+  "zoomfit": {
+    "success": true,
+    "result": {
+      "command": "zoomfit",
+      "status": "dispatched",
+      "effect_verified": false
+    }
+  },
+  "marker_saved": true,
+  "undo_all_tracks_exact": true,
+  "fit_primary_clips": [
+    {
+      "index": 0,
+      "rectangle": [
+        183,
+        800,
+        949,
+        876
+      ]
+    },
+    {
+      "index": 1,
+      "rectangle": [
+        949,
+        800,
+        1332,
+        876
+      ]
+    }
+  ],
+  "all_tracks_preserved": true,
+  "fit_effect_verified": true,
+  "fit_before_width": 383,
+  "fit_after_width": 1149
+}

@@ -1,0 +1,76 @@
+{
+  "Text": {
+    "three_lines_white_pixel_counts": [
+      7084,
+      1757,
+      2073
+    ],
+    "colored_emoji_pixels": 2974,
+    "visual_arabic_connected_text_confirmed": true
+  },
+  "Overlay": {
+    "source_offset_and_scale_position_rgb_error": 3.800017391304348,
+    "before_after_absence_verified": true
+  },
+  "Transform": {
+    "calculated_affine_opacity_mean_rgb_error": 0.8877854938271605,
+    "scale": 0.8,
+    "rotation_degrees": 10,
+    "normalized_half_canvas_position": [
+      0.05,
+      -0.05
+    ],
+    "opacity": 0.7
+  },
+  "Clear": {
+    "removed_animation_static_scale_borders": [
+      [
+        192,
+        108
+      ],
+      [
+        192,
+        108
+      ],
+      [
+        192,
+        108
+      ]
+    ]
+  },
+  "Graphics": {
+    "blue_graphic_pixels": 136607,
+    "before_after_absence_verified": true
+  },
+  "AllKF": {
+    "all_keyframe_properties_and_interpolation_calculated_render_comparison": [
+      {
+        "timeline_seconds": 0,
+        "mean_rgb_error": 0.7423673804012346,
+        "scale": 0.8,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "opacity": 1
+      },
+      {
+        "timeline_seconds": 0.75,
+        "mean_rgb_error": 1.352209201388889,
+        "scale": 1,
+        "x": 0.05,
+        "y": 0.05,
+        "rotation": 5,
+        "opacity": 0.8
+      },
+      {
+        "timeline_seconds": 1.5,
+        "mean_rgb_error": 1.0639057677469135,
+        "scale": 1.2,
+        "x": 0.1,
+        "y": 0.1,
+        "rotation": 10,
+        "opacity": 0.6
+      }
+    ]
+  }
+}

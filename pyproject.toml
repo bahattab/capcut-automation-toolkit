@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "for-windows-capcut-kit"
+version = "0.1.0"
+description = "CapCut draft editing and desktop automation for Windows"
+requires-python = ">=3.12"
+dependencies = ["pywinauto>=0.6.9; sys_platform == 'win32'", "psutil>=7", "Pillow>=11"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+capcut-kit = "capcut_windows.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["capcut_windows*"]
+
+[tool.setuptools.package-data]
+capcut_windows = ["templates/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

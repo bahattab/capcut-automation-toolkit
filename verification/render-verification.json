@@ -1,0 +1,180 @@
+{
+  "Base": {
+    "sha256": "1590b088d6822df58751a8150ee78d33247f1012b646fbaaec82acc57b9b98f3",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true,
+    "source_timing_render_comparison": [
+      {
+        "target_seconds": 0,
+        "source_seconds": 1,
+        "mean_absolute_rgb_difference": [
+          1.5823630401234567,
+          1.2411260609567902,
+          1.290102237654321
+        ]
+      },
+      {
+        "target_seconds": 2,
+        "source_seconds": 4,
+        "mean_absolute_rgb_difference": [
+          1.6171016589506173,
+          1.228995949074074,
+          1.5042086226851852
+        ]
+      }
+    ]
+  },
+  "Animation": {
+    "sha256": "aed08b4bab95b8b5305ce6ed82ec00ce613b57ff980c52cdc49c65c5799eab0f",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true,
+    "two_point_scale_animation_rendered": {
+      "first_top_edge_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "frame36_top_edge_rgb": [
+        98.525,
+        111.44345454545454,
+        100.34648484848485
+      ],
+      "source_offset_seconds": 1,
+      "points_timeline_seconds": [
+        0,
+        1.5
+      ],
+      "scales": [
+        0.8,
+        1.2
+      ],
+      "interpolation_frames": [
+        0,
+        18,
+        36
+      ],
+      "left_colored_pixel_boundaries": [
+        192,
+        48,
+        0
+      ],
+      "expected_boundaries": [
+        192,
+        48,
+        0
+      ],
+      "boundary_tolerance_pixels": 4,
+      "position_coordinate_system": "normalized half-canvas dimensions"
+    }
+  },
+  "Text": {
+    "sha256": "36d55f3131e8c8c86d00b654197f69a0844e2f736d8a9953976861be0dd0369e",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "Overlay": {
+    "sha256": "ea4a3a5bf6b2f688f93fc50055c7db68a04fd407f712870c14f3e36799831018",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "Transform": {
+    "sha256": "5c8109d07c51f5955f0e4e9e902dbc8c9928bd9dd48f069691b238cac032df84",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "Clear": {
+    "sha256": "2aa2aba50cb321b4558d578fd9d1955f4bb71337f7ed2cb6c4bd512686bd0a1f",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "Remove": {
+    "sha256": "5343a3786fd629ebe3d6daee6a4e5902ff35950dfd50d7ec05021ba2f756ac60",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true,
+    "source_timing_render_comparison": [
+      {
+        "target_seconds": 0,
+        "source_seconds": 1,
+        "mean_absolute_rgb_difference": [
+          1.5823630401234567,
+          1.2411260609567902,
+          1.290102237654321
+        ]
+      },
+      {
+        "target_seconds": 2,
+        "source_seconds": 4,
+        "mean_absolute_rgb_difference": [
+          1.6171016589506173,
+          1.228995949074074,
+          1.5042086226851852
+        ]
+      }
+    ]
+  },
+  "Graphics": {
+    "sha256": "8fe7b0b890035613bb4aac562ccd531760de96403ab338d1480ba89e84460087",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "AllKF": {
+    "sha256": "c090975d2ed8cca1712b67e5c07a6b47dc7f3eec0de8629c706370a69eef1a44",
+    "video_frames": 72,
+    "fps": 24,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true
+  },
+  "FPS30": {
+    "sha256": "4ab325492e546d7cdee3e9fc51beae84846bdda378c7cd5c0ba9f6a1792ab650",
+    "video_frames": 90,
+    "fps": 30,
+    "width": 1920,
+    "height": 1080,
+    "full_decode": true,
+    "source_timing_render_comparison": [
+      {
+        "target_seconds": 0,
+        "source_seconds": 1,
+        "mean_absolute_rgb_difference": [
+          1.586120273919753,
+          1.2386950231481482,
+          1.2910720486111111
+        ]
+      },
+      {
+        "target_seconds": 2,
+        "source_seconds": 4,
+        "mean_absolute_rgb_difference": [
+          1.6212364969135802,
+          1.2289091435185184,
+          1.5076750578703704
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": "9.5.0.4050",
+  "production_cli": true,
+  "seek_frame": 36,
+  "main_selection": 0,
+  "split_saved": true,
+  "undo_full_tracks": true,
+  "redo_full_tracks": true,
+  "final_baseline_restored": true
+}

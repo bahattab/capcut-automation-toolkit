@@ -1,0 +1,6 @@
+{
+  "clean_wheel_install_and_help": true,
+  "wheel_matches_every_source_module_and_template": true,
+  "installed_console_native_acceptance": true,
+  "wheel_sha256": "4a81c2af8e45ef6967fcba313ae18b122217b8bc2d4027158428d31bd6b582f7"
+}

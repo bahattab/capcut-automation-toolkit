@@ -1,0 +1,7 @@
+{
+  "production_cli": true,
+  "verified_disposable_project_before_close": true,
+  "ordinary_close": true,
+  "no_force_termination": true,
+  "all_capcut_processes_exited": true
+}
