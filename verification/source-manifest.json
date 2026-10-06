@@ -149,7 +149,7 @@
   },
   {
     "path": "GATES.md",
-    "sha256": "27cfee5e3a58a97f0fb2359dd24afb678c80546f859e8b62602b6137ca59677a"
+    "sha256": "9b0c069593715d7556cd90eacd16f4420a0a5dfb769d3c05c478d00199bc5372"
   },
   {
     "path": "install.ps1",
@@ -173,7 +173,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "641ac691b4d5ebe8fa2691dd4728089456e47fafa701144405795c24316a58d8"
+    "sha256": "89f0e77c6aa2c47591b96e17ec0a0bec557d43dff0db98b1745950fc879d8ac1"
   },
   {
     "path": "scroll_panel.py",
@@ -368,6 +368,10 @@
     "sha256": "2085a306595b00c537892b0037321f78113a30c637e72d895c4ab52523f0e283"
   },
   {
+    "path": "verification/github-readback.json",
+    "sha256": "e42c808ba08680ea6fd7f1b2b0c1c3afafca30df45cfc325753a9e85a439a78e"
+  },
+  {
     "path": "verification/independent-review.json",
     "sha256": "df94e775e52da4e8638b69758cf9ca8be3f9f17726246f231bc46fb26f9d212a"
   },
@@ -461,7 +465,7 @@
   },
   {
     "path": "verification/release-checks.json",
-    "sha256": "01822f3bbe4e39c7820555ea9a6d6bd84cf367a0bb001ecf950656bab2a4346c"
+    "sha256": "f1740f73563efe498c43e3d80948fc8e7c8077ad79cbc4d28bd74be464d879cb"
   },
   {
     "path": "verification/remaining-live-acceptance.json",

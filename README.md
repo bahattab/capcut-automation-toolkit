@@ -1,5 +1,7 @@
 # for windows capcut-kit
 
+[GitHub repository](https://github.com/bahattab/for-windows-capcut-kit)
+
 Windows port of [matt-j-penny/capcut-kit](https://github.com/matt-j-penny/capcut-kit), upstream commit `304c125b626cd35843dc0ba723547ee7ff54eee5`.
 
 Verified Windows release: **443 tests passed**, zero failures or skips. All 35 upstream commands have native acceptance evidence on **CapCut 9.5.0.4050**. Ten disposable projects survived opening and full saved-state reopening; exported video, Arabic/emoji text, overlay timing, transforms, animation and audio were independently checked. The installed `capcut-kit` command passed a final native smoke test. Original project preservation: 33 baseline file hashes unchanged.
