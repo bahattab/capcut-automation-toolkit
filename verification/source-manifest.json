@@ -1,5 +1,9 @@
 [
   {
+    "path": ".gitattributes",
+    "sha256": "30a13ddd36e0d5eecef2c848d2c798fb72370ca92d8584a9451446f9b9ac1021"
+  },
+  {
     "path": ".github/workflows/windows-tests.yml",
     "sha256": "f6f968d088bb504f5fb5f28a01337946bb8f0eadcc03377323059fef4e8000f9"
   },
