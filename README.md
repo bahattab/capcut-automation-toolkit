@@ -1,4 +1,4 @@
-# for windows capcut-kit
+# capcut-kit for windows 
 
 [GitHub repository](https://github.com/bahattab/for-windows-capcut-kit)
 
