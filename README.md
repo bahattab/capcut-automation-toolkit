@@ -1,4 +1,5 @@
-# capcut-kit for windows 
+# Capcut Automation Toolkit For Windows
+- Windows Port With Verified Capcut 9.5 Workflows for windows 
 
 [GitHub repository](https://github.com/bahattab/for-windows-capcut-kit)
 
