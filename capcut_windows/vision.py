@@ -18,13 +18,13 @@ import tempfile
 import time
 from typing import Any, Callable
 
-from PIL import Image, ImageGrab, ImageOps
+from PIL import Image, ImageChops, ImageGrab, ImageOps
 
 from .environment import Settings, processes
 from .errors import BridgeError, backend, LOG
 
 # Qt can add one bottom border pixel after restoring this native work area.
-EDITOR_SIZES=frozenset({(1680,1050),(1680,1051)})
+EDITOR_SIZES=frozenset({(1680,1050),(1680,1051),(1616,916)})
 
 
 @backend
@@ -371,7 +371,7 @@ def shortcut_field(image: Image.Image, field: Box, pills: list[Box]) -> None:
 
 
 @backend
-def template_box(image: Image.Image, template: Image.Image, region: Box, threshold: int = 150) -> Box:
+def template_matches(image: Image.Image, template: Image.Image, region: Box, threshold: int = 150) -> list[Box]:
     """Exact icon geometry after thresholding; hover background is ignored."""
     if not isinstance(threshold,int) or isinstance(threshold,bool) or not 1<=threshold<=254:
         raise BridgeError('The icon threshold must be a bounded integer.')
@@ -399,6 +399,12 @@ def template_box(image: Image.Image, template: Image.Image, region: Box, thresho
             continue
         if search.crop((x,y,x+pattern.width,y+pattern.height)).tobytes()==expected:
             matches.append(Box(region.left+x,region.top+y,region.left+x+pattern.width,region.top+y+pattern.height))
+    return matches
+
+
+@backend
+def template_box(image: Image.Image, template: Image.Image, region: Box, threshold: int = 150) -> Box:
+    matches=template_matches(image,template,region,threshold)
     if len(matches)!=1:
         raise BridgeError('The versioned CapCut icon is missing or ambiguous. No input was sent.')
     return matches[0]
@@ -424,10 +430,42 @@ def text_bands(image: Image.Image, box: Box) -> list[Box]:
     return [Box(left,max(0,top+group[0]-3),right,min(image.height,top+group[-1]+4)) for group in groups]
 
 
+@dataclass(frozen=True)
+class EditorGeometry:
+    counters: tuple[Box,...]
+    playback: Box
+    ruler: Box
+    cover: Box
+    toolbar: Box
+    shortcuts: Box
+
+
+@backend
+def editor_geometry(view: View) -> EditorGeometry:
+    """Measured regions, not proportional scaling or arbitrary-size acceptance."""
+    if view.image.size in {(1680,1050),(1680,1051)}:
+        return EditorGeometry((Box(469,548,540,568),Box(545,548,616,568)),
+                              Box(650,535,1000,578),Box(140,610,1600,641),
+                              Box(130,645,180,1000),Box(90,588,340,614),Box(1334,3,1365,32))
+    if view.image.size==(1616,916):
+        # Native panel widths may change, but this footer is below the preview.
+        # A whole pair must agree at two raster scales; extra clocks fail closed.
+        return EditorGeometry((Box(450,470,1100,502),),Box(650,465,1100,505),
+                              Box(140,539,1600,570),Box(130,570,195,900),
+                              Box(90,510,400,543),Box(1260,8,1305,42))
+    raise BridgeError('The editor layout requires native verification at this window size.')
+
+
 class WindowsVision:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._ocr_cache: dict[tuple[object,...],list[Word]] = {}
+
+    @backend
+    def geometry(self, view: View) -> EditorGeometry:
+        if view.image.size==(1616,916) and self.require_profile('save')!=(9,5,0,4050):
+            raise BridgeError('The 900p editor layout requires CapCut 9.5.0.4050.')
+        return editor_geometry(view)
 
     @backend
     def require_profile(self, controls: str = 'editor') -> tuple[int,int,int,int]:
@@ -535,7 +573,10 @@ class WindowsVision:
             if (win32process.GetWindowThreadProcessId(handle)!=owner
                     or not win32gui.IsWindowVisible(handle) or not win32gui.IsWindowEnabled(handle)):
                 raise BridgeError('The owned focus target changed during restoration.')
-            win32gui.SetForegroundWindow(handle)
+            try:
+                win32gui.SetForegroundWindow(handle)
+            except Exception as error:
+                raise BridgeError('Windows prevented CapCut focus restoration. Bring CapCut to the foreground and retry.') from error
         finally:
             if attached:
                 win32process.AttachThreadInput(current,thread,False)
@@ -722,7 +763,7 @@ class WindowsVision:
             raise BridgeError('The player layout requires native verification at this window size.')
         # This profile locates counters in the player footer, outside the video
         # image where a source can contain its own burned-in timecode.
-        regions = (Box(469,548,540,568),Box(545,548,616,568))
+        regions = self.geometry(view).counters
         for contrast in (False,True):
             try:
                 first = clock_pair([word for region in regions for word in self.words(view,region,scale=4,psm=7,contrast=contrast)],fps)
@@ -733,6 +774,29 @@ class WindowsVision:
                 continue
             self.point(view,first[2])
             return first[0],first[1]
+        if view.image.size==(1616,916):
+            # Neighbouring footer buttons can lower full-line OCR confidence.
+            # Locate exactly two clocks, then read each isolated field twice;
+            # never accept a third clock or substitute a different clock value.
+            coarse=self.words(view,regions[0],scale=4,psm=7)
+            candidates=[word for word in coarse if re.fullmatch(r'\d{2}:\d{2}:\d{2}:\d{2}',word.text)]
+            if len(candidates)!=2:
+                raise BridgeError('The player footer does not contain exactly two clock fields.')
+            pairs=[]
+            for scale in (4,3):
+                refined=[]
+                for word in candidates:
+                    field=Box(max(regions[0].left,word.box.left-4),473,
+                              min(regions[0].right,word.box.right+4),495)
+                    readings=self.words(view,field,scale=scale,psm=7,contrast=True)
+                    if len(readings)!=1 or readings[0].text!=word.text:
+                        raise BridgeError('The isolated player clock disagrees with its footer field.')
+                    refined.extend(readings)
+                pairs.append(clock_pair(refined,fps))
+            if pairs[0][:2]!=pairs[1][:2] or max(abs(a-b) for a,b in zip(pairs[0][2].tuple(),pairs[1][2].tuple()))>3:
+                raise BridgeError('The two isolated player-clock readings disagree.')
+            self.point(view,pairs[0][2])
+            return pairs[0][0],pairs[0][1]
         raise BridgeError('The player counters did not agree across two independent readings.')
 
     @backend
@@ -742,14 +806,14 @@ class WindowsVision:
         if view.image.size not in EDITOR_SIZES:
             raise BridgeError('The player layout requires native verification at this window size.')
         with Image.open(Path(__file__).with_name('templates')/'capcut-9.4-play.png') as image:
-            button = template_box(view.image,image,Box(650,535,1000,578))
+            button = template_box(view.image,image,self.geometry(view).playback)
         self.point(view,button)
         return True
 
     @backend
     def ruler(self, view: View) -> tuple[float,float,int]:
         """Require independent three-anchor readings of the visible ruler."""
-        region = Box(140,610,1600,641)
+        region = self.geometry(view).ruler
         readings: list[tuple[float,float,int]] = []
         candidates: list[Word] = []
         for contrast in (False,True):
@@ -878,8 +942,14 @@ class WindowsVision:
             raise BridgeError('The live timeline differs from its saved metadata. Wait for autosave.')
         view = self.capture()
         title_box = self.recognize_label(view,self.words(view,Box(0,0,view.image.width,65),scale=4),name,identifier=True)
-        with Image.open(Path(__file__).with_name('templates')/'capcut-9.4-cover.png') as image:
-            cover = template_box(view.image,image,Box(130,645,180,1000))
+        cover_templates=('capcut-9.5-cover-900.png','capcut-9.5-cover-900-reopened.png') if view.image.size==(1616,916) else ('capcut-9.4-cover.png',)
+        matches=set()
+        for filename in cover_templates:
+            with Image.open(Path(__file__).with_name('templates')/filename) as image:
+                matches.update(template_matches(view.image,image,self.geometry(view).cover))
+        if len(matches)!=1:
+            raise BridgeError('The versioned cover control is missing or ambiguous. No input was sent.')
+        cover=matches.pop()
         self.point(view,cover)
         origin,spacing,_ = self.ruler(view)
         materials = {item['id']:item for item in (saved.get('materials') or {}).get('videos',[])}
@@ -1241,7 +1311,9 @@ class WindowsVision:
         width,height = view.image.size
         # Home scrolls its banner and heading together. Locate the heading
         # throughout the content area, then verify all three List columns.
-        projects = label_box(self.words(view,Box(180,35,width//2,min(height,height*2//3)),scale=2),'Projects',85)
+        # Remote Home banners can push Projects below two thirds of the page.
+        # Reserve space for the verified column header and a complete row.
+        projects = label_box(self.words(view,Box(180,35,width//2,height-100),scale=2),'Projects',85)
         header = Box(projects.left,projects.bottom+5,width,min(height,projects.bottom+65))
         try:
             first = home_name_region(self.words(view,header,scale=4,psm=11,contrast=True),projects,width,height)
@@ -1280,6 +1352,7 @@ class WindowsVision:
             raise BridgeError('Close other menus before using native history.')
 
         def menu_target(label: str, region: Box) -> tuple[View,Box]:
+            import win32process
             deadline = time.monotonic()+8
             last_error: BridgeError | None = None
             while time.monotonic()<deadline:
@@ -1289,12 +1362,19 @@ class WindowsVision:
                     # editor. All recognized controls remain in the original
                     # viewport; retain its exact origin and width instead of
                     # treating the changing bottom shadow as a layout change.
-                    if (view.image.width!=initial.image.width or view.image.height<initial.image.height
+                    inset_menu=(initial.image.size==(1616,916) and view.image.width==1600 and 900<=view.image.height<=916
+                                and view.box.left==initial.box.left+8 and view.box.top==initial.box.top+8
+                                and view.box.right==initial.box.right-8
+                                and win32process.GetWindowThreadProcessId(view.handle)[1]
+                                ==win32process.GetWindowThreadProcessId(initial.handle)[1])
+                    if not inset_menu and (view.image.width!=initial.image.width or view.image.height<initial.image.height
                             or (view.box.left,view.box.top,view.box.right)
                             !=(initial.box.left,initial.box.top,initial.box.right)):
                         raise BridgeError('The native menu layout changed.')
                     title = self.recognize_label(view,self.words(view,Box(560,0,1120,65),scale=4),project,identifier=True)
-                    boxes = [label_box(self.words(view,region,scale=scale,psm=7,contrast=True),label,85)
+                    native_region=(Box(max(0,region.left-8),max(0,region.top-8),region.right-8,region.bottom-8)
+                                   if inset_menu else region)
+                    boxes = [label_box(self.words(view,native_region,scale=scale,psm=7,contrast=True),label,85)
                              for scale in (4,3)]
                     if max(abs(a-b) for a,b in zip(boxes[0].tuple(),boxes[1].tuple()))>3:
                         raise BridgeError('The native menu label readings disagree.')
@@ -1310,9 +1390,11 @@ class WindowsVision:
                 raise last_error
             raise BridgeError('The native history menu did not become ready.')
 
-        for label,region in (('Menu',Box(90,6,124,29)),('Edit',Box(90,65,210,96)),
-                             ('Undo' if command=='undo' else 'Recovery',
-                              Box(242,65,327,96) if command=='undo' else Box(242,97,327,128))):
+        menu_region=Box(90,6,150,32) if initial.image.size==(1616,916) else Box(90,6,124,29)
+        edit_region=Box(98,68,153,94) if initial.image.size==(1616,916) else Box(90,65,210,96)
+        history_region=(Box(230,55,308,94) if command=='undo' else Box(230,86,308,122)) if initial.image.size==(1616,916) else (Box(242,65,327,96) if command=='undo' else Box(242,97,327,128))
+        for label,region in (('Menu',menu_region),('Edit',edit_region),
+                             ('Undo' if command=='undo' else 'Recovery',history_region)):
             view,target = menu_target(label,region)
             self.click_box(view,target)
 
@@ -1327,13 +1409,18 @@ class WindowsVision:
         if command not in labels or view.image.size not in EDITOR_SIZES:
             raise BridgeError('The native toolbar profile could not be verified.')
         label,x = labels[command]
-        region = Box(x-18,588,x+18,614)
+        geometry = self.geometry(view)
+        region = geometry.toolbar if view.image.size==(1616,916) else Box(x-18,588,x+18,614)
         for suffix in ('','-hover'):
             with Image.open(Path(__file__).with_name('templates')/f'capcut-9.4-{command}{suffix}.png') as icon:
                 try:
                     return view,template_box(view.image,icon,region)
                 except BridgeError:
                     pass
+        if view.image.size==(1616,916):
+            # New toolbar groups can shift after workspace initialization.
+            # Do not hover a guessed x when the exact glyph cannot be identified.
+            raise BridgeError('A unique native toolbar glyph could not be verified in this layout.')
         button = Box(x-10,590,x+10,612)
         if view.image.crop(button.tuple()).convert('L').getextrema()[1]<150:
             raise BridgeError('The requested toolbar button appears disabled.')
@@ -1412,7 +1499,7 @@ class WindowsVision:
         if editor.image.size not in EDITOR_SIZES:
             raise BridgeError('The shortcut-button layout requires native verification.')
         with Image.open(Path(__file__).with_name('templates')/'capcut-9.5-shortcuts.png') as icon:
-            button=template_box(editor.image,icon,Box(1334,3,1365,32),threshold=100)
+            button=template_box(editor.image,icon,self.geometry(editor).shortcuts,threshold=100)
         self.click_box(editor,button)
         deadline=time.monotonic()+15
         while time.monotonic()<deadline:
@@ -1569,7 +1656,7 @@ class WindowsVision:
             for state in ('play','pause'):
                 with Image.open(Path(__file__).with_name('templates')/f'capcut-9.4-{state}.png') as icon:
                     try:
-                        matches.append((state,template_box(final.image,icon,Box(650,535,1000,578))))
+                        matches.append((state,template_box(final.image,icon,self.geometry(final).playback)))
                     except BridgeError:
                         pass
             if len(matches)!=1:
@@ -1643,13 +1730,15 @@ class WindowsVision:
         if command in {'dismiss-guidance','dismiss-keyframe-guidance'}:
             import win32gui
             import win32process
-            self.require_profile()
+            self.require_profile('save')
             self.active_draft()
             view = self.capture()
-            if view.image.size not in EDITOR_SIZES:
+            if (view.image.size not in EDITOR_SIZES or
+                    (view.image.size==(1616,916) and command=='dismiss-keyframe-guidance')):
                 raise BridgeError('The guidance layout requires native verification.')
+            self.geometry(view)
             if command=='dismiss-guidance':
-                region = Box(456,495,630,575)
+                region = Box(450,300,650,510) if view.image.size==(1616,916) else Box(456,495,630,575)
                 instructions = ('Describe what to add,','remove, or change in your')
                 button_text = 'Got it'
             else:
@@ -1769,6 +1858,49 @@ class WindowsVision:
             self.point(view,box)
 
     @backend
+    def verify_local_export_footer(self, view: View) -> None:
+        """Recognize the measured 9.5 local-only export pane at its bottom.
+
+        This is a separate native layout, not an unchecked cloud checkbox.
+        Any cloud wording or missing footer anchor rejects this profile.
+        """
+        import win32gui
+        if (self.require_profile('export')!=(9,5,0,4050) or view.image.size!=(720,663)
+                or not win32gui.GetWindowText(view.handle).startswith('Export-')):
+            raise BridgeError('The local export footer is not a verified native profile.')
+        pane=Box(345,180,710,605)
+        # RGB evidence includes every option, intervening blank space,
+        # disabled controls and the scrollbar at its bottom endpoint. OCR
+        # absence alone cannot establish that a cloud control is absent.
+        with Image.open(Path(__file__).with_name('templates')/'capcut-9.5-local-export-footer.png') as template:
+            difference=ImageChops.difference(view.image.crop(pane.tuple()).convert('RGB'),template.convert('RGB'))
+            # Qt rasterization can round individual RGB channels by one. No
+            # pixel may exceed that tolerance; controls cannot disappear in it.
+            if any(high>1 for low,high in difference.getextrema()):
+                raise BridgeError('The local-only export pane pixels do not match the measured profile.')
+        readings=[]
+        for scale in (4,3):
+            words=self.words(view,Box(345,240,690,588),scale=scale)
+            if any(normalize(word.text) in {'sync','space','cloud'} for word in words):
+                raise BridgeError('Cloud export controls require explicit checkbox verification.')
+            anchors=((Box(377,249,413,270),'Audio'),(Box(378,342,437,366),'Export GIF'),
+                     (Box(378,436,430,458),'Captions'),(Box(358,555,453,580),'Check copyright?'))
+            boxes=[identifier_box(self.words(view,region,scale=scale,psm=7,contrast=True),label)
+                   for region,label in anchors]
+            if any(not (region.left<=box.left<box.right<=region.right
+                        and region.top<=box.top<box.bottom<=region.bottom)
+                   for box,(region,_) in zip(boxes,anchors)):
+                raise BridgeError('The local export labels escaped their measured regions.')
+            expected=((250,275),(340,367),(435,460),(555,580))
+            if any(not low<=box.center[1]<=high for box,(low,high) in zip(boxes,expected)):
+                raise BridgeError('The local export footer anchors do not match the verified layout.')
+            readings.append(boxes)
+        if any(abs(a-b)>3 for first,second in zip(*readings) for a,b in zip(first.tuple(),second.tuple())):
+            raise BridgeError('The local export footer readings disagree.')
+        self.point(view,pane)
+        for box in readings[0]:self.point(view,box)
+
+    @backend
     def export(self, directory: str, timeout: float = 600) -> str:
         """Verified native layout: exact folder, local settings and decoded output."""
         import shutil
@@ -1875,8 +2007,26 @@ class WindowsVision:
         if win32gui.GetWindowText(view.handle)!=title or view.image.size!=(720,663):
             raise BridgeError('CapCut did not return to the verified export dialog.')
         sync_region=Box(345,525,565,555) if fps==30 else Box(345,440,565,500)
-        sync_label = self.recognize_label(view,self.words(view,sync_region,scale=4),'Sync exported videos to space')
-        checkbox = Box(sync_label.left-16,sync_label.center[1]-6,sync_label.left-4,sync_label.center[1]+6)
+        try:
+            sync_label = self.recognize_label(view,self.words(view,sync_region,scale=4),'Sync exported videos to space')
+        except BridgeError:
+            # 9.5 also has a measured local-only pane ending in Audio, GIF,
+            # captions and copyright controls. Positively verify that layout;
+            # never interpret an unreadable checkbox as disabled.
+            self.scroll(view.box.left+440,view.box.top+260,-8)
+            time.sleep(.3)
+            view=self.capture()
+            if win32gui.GetWindowText(view.handle)!=title:
+                raise BridgeError('The export dialog changed during local footer verification.')
+            self.verify_local_export_footer(view)
+            self.scroll(view.box.left+440,view.box.top+260,8)
+            time.sleep(.3)
+            view=self.capture()
+            if win32gui.GetWindowText(view.handle)!=title or view.image.size!=(720,663):
+                raise BridgeError('The export dialog changed while restoring local settings.')
+            sync_label=None
+        checkbox = (Box(sync_label.left-16,sync_label.center[1]-6,sync_label.left-4,sync_label.center[1]+6)
+                    if sync_label else None)
         def checked(image: Image.Image) -> bool:
             pixels = list(image.crop(checkbox.tuple()).convert('RGB').getdata())
             cyan = sum(g>120 and b>120 and r<80 for r,g,b in pixels)
@@ -1886,16 +2036,16 @@ class WindowsVision:
             if grey>=30 and cyan==0:
                 return False
             raise BridgeError('The cloud sync checkbox state is uncertain.')
-        if checked(view.image):
+        if checkbox is not None and checked(view.image):
             self.click_box(view,checkbox)
             view = self.capture()
-        if checked(view.image):
+        if checkbox is not None and checked(view.image):
             raise BridgeError('Cloud sync must be disabled before local export.')
         current_output,name_box=self.export_filename(view,name)
         if current_output!=output_name:
             raise BridgeError('The export filename changed during destination selection.')
         self.point(view,name_box)
-        self.point(view,checkbox)
+        if checkbox is not None:self.point(view,checkbox)
         for region,label in ((Box(460,215,700,246),'1080P'),(Box(460,292,700,322),'H.264'),
                              (Box(460,330,700,360),'mp4'),(Box(460,368,700,399),frame_rate_label)):
             if fps==30 and label==frame_rate_label:
@@ -1938,6 +2088,28 @@ class WindowsVision:
         raise BridgeError('Export did not produce a stable verified video before the timeout.')
 
     @backend
+    def restore_measured_editor(self) -> None:
+        """Fit an already identified editor to the measured 900p frame.
+
+        Qt can reopen at the work-area bounds instead of its framed bounds.
+        Only the exact 1600x900 work area and native window are adapted.
+        """
+        import win32api
+        import win32gui
+        if self.require_profile('home')!=(9,5,0,4050):return
+        view=self.capture()
+        if view.image.size!=(1600,900):return
+        work=win32api.GetMonitorInfo(win32api.MonitorFromWindow(view.handle,2))['Work']
+        if (work[2]-work[0],work[3]-work[1])!=(1600,900) or view.box.tuple()!=tuple(work):return
+        if self.foreground(False)!=view.handle or tuple(win32gui.GetWindowRect(view.handle))!=view.box.tuple():
+            raise BridgeError('The editor moved or lost focus before frame restoration.')
+        win32gui.MoveWindow(view.handle,work[0]-8,work[1]-8,1616,916,True)
+        time.sleep(.3)
+        fresh=self.capture()
+        if fresh.handle!=view.handle or fresh.box!=Box(work[0]-8,work[1]-8,work[2]+8,work[3]+8):
+            raise BridgeError('The measured editor frame could not be restored.')
+
+    @backend
     def open(self, name: str) -> None:
         from .drafts import DraftStore
         from .environment import launch
@@ -1946,10 +2118,12 @@ class WindowsVision:
         unique_project_name(name,[row['name'] for row in store.listings()])
         launch(self.settings)
         try:
-            if self.active_draft()==name:
-                return
+            already_open=self.active_draft()==name
         except BridgeError:
-            pass
+            already_open=False
+        if already_open:
+            self.restore_measured_editor()
+            return
         self.prepare()
         view = self.capture()
         try:
@@ -2000,10 +2174,12 @@ class WindowsVision:
         deadline = time.monotonic()+180
         while time.monotonic()<deadline:
             try:
-                if self.active_draft()==name:
-                    return
+                opened=self.active_draft()==name
             except BridgeError:
-                pass
+                opened=False
+            if opened:
+                self.restore_measured_editor()
+                return
             time.sleep(.5)
         if open_error is not None:
             raise open_error

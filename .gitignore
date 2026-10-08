@@ -8,6 +8,7 @@ dist/
 .unlazy/
 .unlazy-hook-state.json
 projects/
+work/
 *.log
 !verification/tests.log
 test-results.xml

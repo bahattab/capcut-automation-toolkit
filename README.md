@@ -1,12 +1,16 @@
-# capcut-kit for windows 
+# CapCut Automation Toolkit for Windows
 
-[GitHub repository](https://github.com/bahattab/for-windows-capcut-kit)
+[GitHub repository](https://github.com/bahattab/capcut-automation-toolkit)
 
 Windows port of [matt-j-penny/capcut-kit](https://github.com/matt-j-penny/capcut-kit), upstream commit `304c125b626cd35843dc0ba723547ee7ff54eee5`.
 
-Verified Windows release: **443 tests passed**, zero failures or skips. All 35 upstream commands have native acceptance evidence on **CapCut 9.5.0.4050**. Ten disposable projects survived opening and full saved-state reopening; exported video, Arabic/emoji text, overlay timing, transforms, animation and audio were independently checked. The installed `capcut-kit` command passed a final native smoke test. Original project preservation: 33 baseline file hashes unchanged.
+Original Windows release acceptance: **443 tests passed**, zero failures or skips. All 35 upstream commands have native acceptance evidence on **CapCut 9.5.0.4050**. Ten disposable projects survived opening and full saved-state reopening; exported video, Arabic/emoji text, overlay timing, transforms, animation and audio were independently checked. The installed `capcut-kit` command passed a final native smoke test. Original project preservation: 33 baseline file hashes unchanged.
 
-The verified optical profile uses English UI, readable unique Latin project titles, a fully visible Home List row, editor size 1680×1050/1051, and the 720×663 export dialog. Local export was checked at 1920×1080, H.264/MP4, 24 and 30 fps, with cloud sync disabled. Other versions, layouts, languages and export settings need their own native acceptance. Uncertain recognition stops before input. Close unrelated modal dialogs before commands; title reading may take up to three minutes on a busy desktop.
+The original optical profile uses English UI, readable unique Latin project titles, a fully visible Home List row, editor size 1680Ã—1050/1051, and the 720Ã—663 export dialog. Local export was checked at 1920Ã—1080, H.264/MP4, 24 and 30 fps, with cloud sync disabled. Other versions, layouts, languages and export settings need their own native acceptance. Uncertain recognition stops before input. Close unrelated modal dialogs before commands; title reading may take up to three minutes on a busy desktop.
+
+The 0.2 update adds the measured **1600Ã—900 work area / 1616Ã—916 editor frame** on CapCut 9.5.0.4050, with **503 regression tests passed**. `open` restores that frame when Qt reopens an identified project at the exact 1600Ã—900 work-area bounds. It adapts footer counters, timeline/cover bounds, toolbar glyphs, shortcut controls and native history menus. Counter refinement requires two agreeing confident readings. Windows focus denial returns a retry instruction without sending input to another app. Local export also supports a measured pane without a cloud checkbox: every footer pixel, the scrollbar endpoint and two OCR readings must match; individual RGB channels may differ by at most one due to raster rounding. An unreadable cloud option never counts as disabled. This profile is deliberately strict and rejects changed pane settings or appearance.
+
+Native 900p acceptance includes split/undo/redo, delete, both trims, markers, fit and playback; two synthetic projects survived full saved-state reopening and exported 1920×1080 H.264 at 24 fps. Composite Arabic/emoji text, animated overlays, graphics and muted audio were checked in decoded frames and audio. All 35 baseline project files remain unchanged. The installed wheel matches all 31 source/template files and passed native inspection, split, undo and save. `save` requires the visible native Auto saved indicator after an edit; a freshly reopened unchanged project may not display it yet. The 900p extension does not imply fresh acceptance of every historical command or arbitrary layouts.
 
 See [VERIFICATION.md](VERIFICATION.md) for evidence and [GATES.md](GATES.md) for release status.
 
@@ -14,7 +18,17 @@ See [VERIFICATION.md](VERIFICATION.md) for evidence and [GATES.md](GATES.md) for
 
 Requirements: Windows, Python 3.12 or newer, CapCut Desktop, Tesseract OCR with English language data on PATH, and FFmpeg with `ffmpeg` and `ffprobe` on PATH. The development run uses an isolated Python 3.12 environment. No Apple frameworks are required.
 
-From this directory:
+Install the command in an isolated Python 3.12 tool environment:
+
+```powershell
+git clone https://github.com/bahattab/capcut-automation-toolkit.git
+cd capcut-automation-toolkit
+uv tool install --force --reinstall --python 3.12 .
+capcut-kit doctor
+capcut-kit --help
+```
+
+Open a new terminal if the command is not yet on PATH. For development and tests, run from this directory:
 
 ```powershell
 
@@ -112,7 +126,7 @@ scroll <x> <y> <wheel-steps>
 
 These commands use the selected desktop backend. The auto default uses the optical driver for the two tested executable versions; explicit --backend uia selects Windows UI Automation. The tested CapCut 9.4.0.4015 exposes editor window nodes without the required child controls, so commands that require named buttons, fields, timeline clips or timecodes cannot meet native acceptance on this installation. A missing or ambiguous control returns an error. The driver checks foreground process and owning window before sending input, and mouse targets reject overlapping foreign windows. It does not reuse macOS screen offsets.
 
-The local Tesseract optical backend can be selected with `--backend vision`; `CAPCUT_TESSERACT` can point to its executable. Complete native command acceptance in this release is on CapCut 9.5.0.4050, with the measured editor layout and 720×663 export dialog at 1080P/H.264/MP4, 24 or 30 fps. Unknown or ambiguous layouts fail closed.
+The local Tesseract optical backend can be selected with `--backend vision`; `CAPCUT_TESSERACT` can point to its executable. Complete native command acceptance in this release is on CapCut 9.5.0.4050, with the measured editor layout and 720Ã—663 export dialog at 1080P/H.264/MP4, 24 or 30 fps. Unknown or ambiguous layouts fail closed.
 
 The standalone `scroll_panel.py x y steps` helper is also ported. Windows scrolling uses wheel steps rather than macOS pixel units. Positive steps scroll up, negative steps scroll down; bounds and foreground ownership are checked before dispatch.
 

@@ -1,10 +1,19 @@
-# Release gates
+# Original release gates (archived acceptance)
 
-- [x] G1 — Windows installation and all 35 upstream command routes.
-- [x] G2 — Behavioral regression, validation, transactions and input safety tests.
-- [x] G3 — Every file command: ten native exported and reopened fixtures.
-- [x] G4 — Every live command: independent native effects and decoded exports.
-- [x] G5 — Independent AMA review passed; source, wheel, templates, archive and privacy verified; original 33 hashes unchanged.
-- [x] G6 — Published to bahattab/for-windows-capcut-kit; clean clone matched every manifest entry.
+- [x] G1 â€” Windows installation and all 35 upstream command routes.
+- [x] G2 â€” Behavioral regression, validation, transactions and input safety tests.
+- [x] G3 â€” Every file command: ten native exported and reopened fixtures.
+- [x] G4 â€” Every live command: independent native effects and decoded exports.
+- [x] G5 â€” Independent AMA review passed; source, wheel, templates, archive and privacy verified; original 33 hashes unchanged.
+- [x] G6 â€” Published to bahattab/for-windows-capcut-kit; clean clone matched every manifest entry.
 
 Native acceptance is bounded to CapCut 9.5.0.4050 and the profile documented in README. The test runner does not certify arbitrary CapCut versions or layouts.
+
+## 0.2 release: measured 900p editor
+
+- [x] N1 â€” 503 regression tests passed, including profile, OCR, pixel, focus, menu and negative-origin controls. Evidence: verification/tests-900-summary.json.
+- [x] N2 â€” Native split/history/delete/trim/marker/fit/playback effects checked independently from dispatch receipts. Evidence: verification/native-900-acceptance.json.
+- [x] N3 â€” Composite file edits render correctly and full native saved state survives reopening.
+- [x] N4 â€” Final local export, decode/audio checks and original project preservation pass.
+- [x] N5 â€” Independent review, wheel/installed parity and final installed native smoke pass.
+- [ ] N6 â€” Publish to bahattab/capcut-automation-toolkit and verify remote commit and clean-clone hashes.

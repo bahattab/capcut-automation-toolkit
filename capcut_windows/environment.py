@@ -69,7 +69,11 @@ def launch(settings: Settings) -> int:
         raise BridgeError("CapCut Desktop was not found. Set CAPCUT_EXE to its executable.")
     environment = os.environ.copy()
     environment["QT_ACCESSIBILITY"] = "1"
-    process = subprocess.Popen([str(settings.executable)],env=environment,creationflags=subprocess.CREATE_NO_WINDOW)
+    # The GUI outlives this command. Do not let it retain CLI capture pipes or
+    # mix native application output into the bridge's JSON response.
+    process = subprocess.Popen([str(settings.executable)],env=environment,creationflags=subprocess.CREATE_NO_WINDOW,
+                               stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                               close_fds=True)
     return process.pid
 
 

@@ -1,0 +1,39 @@
+{
+  "pixels": [
+    {
+      "seconds": 1.25,
+      "color": "blue",
+      "matching_fraction": 1.0
+    },
+    {
+      "seconds": 2,
+      "color": "blue",
+      "matching_fraction": 1.0
+    },
+    {
+      "seconds": 2.75,
+      "color": "blue",
+      "matching_fraction": 1.0
+    },
+    {
+      "seconds": 4.5,
+      "color": "yellow",
+      "matching_fraction": 1.0
+    }
+  ],
+  "new_text_white_pixels_active_then_absent": [
+    9717,
+    0
+  ],
+  "audio": {
+    "rms": 0.08781807822663547,
+    "440": 0.12415843585055866,
+    "880": 7.328767697484089e-07
+  },
+  "unmuted_overlay_positive_control": {
+    "rms": 0.08879644847547115,
+    "440": 8.567526339623223e-07,
+    "880": 0.1255439739309505
+  },
+  "full_decode": true
+}

@@ -21,10 +21,11 @@ def test_native_home_column_excludes_metadata_and_rejects_ambiguous_headers(case
         with pytest.raises(BridgeError):home_name_region(words,projects,1680,1050)
 
 
-@pytest.mark.parametrize('heading_top',[75,335,492])
-def test_home_list_tracks_heading_after_native_page_scroll(tmp_path,heading_top):
+@pytest.mark.parametrize('size,heading_top',[((1680,1050),75),((1680,1050),335),((1680,1050),492),
+                                           ((1680,1050),850),((1600,900),694)])
+def test_home_list_tracks_heading_after_native_page_scroll(tmp_path,size,heading_top):
     driver=WindowsVision(Settings(tmp_path))
-    view=View(1,Box(0,0,1680,1050),Image.new('RGB',(1680,1050)))
+    view=View(1,Box(0,0,*size),Image.new('RGB',size))
     projects=Box(240,heading_top,300,heading_top+12)
     headers=[Word('Name',95,Box(300,heading_top+40,330,heading_top+53),(1,1,1,1)),
              Word('Size',95,Box(1304,heading_top+40,1326,heading_top+53),(1,1,1,1)),
@@ -39,4 +40,4 @@ def test_home_list_tracks_heading_after_native_page_scroll(tmp_path,heading_top)
             assert region.top<=word.box.top<word.box.bottom<=region.bottom
         return candidates
     driver.words=words
-    assert driver.home_list()==Box(296,heading_top+57,1292,1038)
+    assert driver.home_list()==Box(296,heading_top+57,1292,size[1]-12)

@@ -1,0 +1,65 @@
+{
+  "split_at_seconds": 3,
+  "delete_and_undo_restored": true,
+  "redo_restored": true,
+  "trim_left_source_start_seconds": 1,
+  "trim_left_duration_seconds": 5,
+  "trim_right_duration_seconds": 2,
+  "trim_undo_restored": true,
+  "clip_marker_source_seconds": 2,
+  "zoom_fit_width_ratio": 2.352051835853132,
+  "native_playback_clock_seconds": 3.125,
+  "playback_pause_icon_verified": true,
+  "saved_state_reopen": [
+    "Trial",
+    "TrialFX"
+  ],
+  "native_exports": [
+    {
+      "fixture": "Trial",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "frames": 144,
+      "video_seconds": 6,
+      "full_decode": true
+    },
+    {
+      "fixture": "TrialFX",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "frames": 144,
+      "video_seconds": 6,
+      "full_decode": true
+    }
+  ],
+  "installed_console": [
+    "open",
+    "playhead",
+    "clips",
+    "state",
+    "dump",
+    "select",
+    "split",
+    "undo",
+    "save"
+  ],
+  "profile": {
+    "capcut": "9.5.0.4050",
+    "work_area": [
+      1600,
+      900
+    ],
+    "editor": [
+      1616,
+      916
+    ],
+    "export_dialog": [
+      720,
+      663
+    ]
+  }
+}
