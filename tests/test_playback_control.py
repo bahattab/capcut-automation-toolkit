@@ -9,14 +9,15 @@ from capcut_windows.errors import BridgeError
 from capcut_windows.vision import WindowsVision, View, Box
 
 
-@pytest.mark.parametrize('state',['play','pause','missing','ambiguous'])
+@pytest.mark.parametrize('state',['play','pause','missing','ambiguous','two-play-one-pause','one-play-two-pause'])
 def test_playback_requires_one_owned_native_control(tmp_path,state,monkeypatch):
     driver=WindowsVision(Settings(tmp_path))
     image=Image.new('RGB',(1680,1050),'black')
     for index,name in enumerate(('play','pause')):
-        if state in {name,'ambiguous'}:
+        if state in {name,'ambiguous','two-play-one-pause','one-play-two-pause'}:
             with Image.open(Path(module.__file__).with_name('templates')/f'capcut-9.4-{name}.png') as icon:
                 image.paste(icon,(872+index*30,551))
+                if state=="two-play-one-pause" and name=="play" or state=="one-play-two-pause" and name=="pause":image.paste(icon,(950,551))
     view=View(1,Box(3360,0,5040,1050),image)
     driver.require_profile=lambda *args:None
     driver.active_draft=lambda:'Trial'

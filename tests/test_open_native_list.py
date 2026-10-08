@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from PIL import Image
 from capcut_windows.environment import Settings
-from capcut_windows.vision import WindowsVision,View,Box
+from capcut_windows.vision import WindowsVision,View,Box,editor_geometry
 from capcut_windows.errors import BridgeError
 import capcut_windows.drafts as drafts
 import capcut_windows.environment as environment
@@ -17,7 +17,7 @@ def test_native_95_open_uses_verified_name_column_without_banner_ocr(tmp_path,mo
         raise BridgeError('Home has no active project')
     v.active_draft=active;v.prepare=lambda:events.append('prepare');v.capture=lambda:view
     v.require_profile=lambda feature:(9,5,0,4050)
-    v.home_list=lambda:column
+    v.home_list=lambda:column;v.point=lambda *args:None;v.geometry=lambda current:editor_geometry(current)
     def hover(box):
         assert box==(900,5,1000,25)
         events.append('neutral-hover')

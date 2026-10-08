@@ -8,7 +8,9 @@ from capcut_windows.vision import WindowsVision,View,Box,VisualClip
 
 @pytest.mark.parametrize('case',['delayed','other-clip','changed-window'])
 def test_selection_waits_for_paint_without_repeating_input(tmp_path,monkeypatch,case):
+    from capcut_windows.vision import editor_geometry
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda view:editor_geometry(view)
     view=View(11,Box(0,0,1680,1050),Image.new('RGB',(1680,1050)))
     clips=[VisualClip('A',(183,800,509,876),0,Box(700,12,800,25)),
            VisualClip('B',(509,800,672,876),1,Box(700,12,800,25))]

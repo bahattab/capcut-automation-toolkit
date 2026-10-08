@@ -9,9 +9,10 @@ from capcut_windows.vision import WindowsVision, View, Box, Word
 
 
 @pytest.mark.parametrize('case',['valid','foreign-process','wrong-action','cursor-moved','changed-pixels','reused-window-class'])
-def test_toolbar_tooltip_fallback_rejects_foreign_stale_or_wrong_controls(tmp_path,monkeypatch,case):
+def test_toolbar_never_guesses_missing_glyph_even_with_tooltip_hints(tmp_path,monkeypatch,case):
     import capcut_windows.vision as module
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda view:module.editor_geometry(view)
     image=Image.new('RGB',(1680,1050),(38,38,38))
     image.putpixel((134,601),(200,200,200))
     view=View(1,Box(3360,0,5040,1050),image)
@@ -50,10 +51,5 @@ def test_toolbar_tooltip_fallback_rejects_foreign_stale_or_wrong_controls(tmp_pa
     if case=='changed-pixels':
         latest.putpixel((104,624),(255,255,255))
     monkeypatch.setattr(module.ImageGrab,'grab',lambda **kwargs:latest)
-    if case=='valid':
-        assert driver.toolbar_target('undo',view)==(view,Box(124,590,144,612))
-        assert reads==[4,3]
-    else:
-        with pytest.raises(BridgeError):
-            driver.toolbar_target('undo',view)
-    assert len(moves)==1
+    with pytest.raises(BridgeError):driver.toolbar_target('undo',view)
+    assert moves==[] and reads==[]

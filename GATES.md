@@ -17,3 +17,13 @@ Native acceptance is bounded to CapCut 9.5.0.4050 and the profile documented in 
 - [x] N4 â€” Final local export, decode/audio checks and original project preservation pass.
 - [x] N5 â€” Independent review, wheel/installed parity and final installed native smoke pass.
 - [x] N6 â€” Publish to bahattab/capcut-automation-toolkit and verify remote commit and clean-clone hashes. Evidence: verification/github-readback-900.json and source-manifest-900.json.
+
+## 0.3 adaptive layout
+
+- [x] A1 — Detect editor regions from independent native visual anchors, without a screen-size allowlist or resizing the editor.
+- [x] A2 — Preserve focus, ownership, pixel stability and ambiguity checks; regression and negative layout checks pass.
+- [x] A3 — Native seek, clips, split/history/save and export verified at multiple window sizes on both available monitors; preserve baseline project files.
+- [x] A4 — Measure DPI/template scale handling and publish explicit verified bounds rather than promise every possible display.
+- [ ] A5 — Installed package parity, documentation and final GitHub clean-clone readback pass.
+
+Adaptive evidence: verification/native-adaptive-acceptance.json, tests-adaptive-summary.json, export-adaptive-summary.json, dpi-adaptive-summary.json and preservation-adaptive-summary.json. Installed package matches all 31 source/template files; independent review passed. A5 publication readback remains pending.

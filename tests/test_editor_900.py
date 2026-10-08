@@ -65,34 +65,29 @@ def test_local_export_footer_requires_complete_measured_profile(tmp_path,monkeyp
         assert not points
 
 
-@pytest.mark.parametrize('case',['valid','negative-origin','wrong-version','unknown-size','wrong-work-area','moved','lost-focus','failed-move'])
-def test_editor_restoration_moves_only_exact_owned_work_area(tmp_path,monkeypatch,case):
-    import win32api,win32gui
+@pytest.mark.parametrize('case',['valid','negative-origin','large','small','moved','lost-focus','ambiguous','clipped'])
+def test_editor_verification_never_resizes_any_monitor(tmp_path,monkeypatch,case):
+    import win32gui
     driver=WindowsVision(Settings(tmp_path))
+    size=(1920,1080) if case=='large' else (1280,720) if case=='small' else (1600,900)
     origin=(-1600,-96) if case=='negative-origin' else (0,0)
-    size=(1920,1080) if case=='unknown-size' else (1600,900)
-    box=Box(origin[0],origin[1],origin[0]+size[0],origin[1]+size[1])
-    view=View(1,box,Image.new('RGB',size))
-    work=box.tuple() if case!='wrong-work-area' else (0,0,1600,860)
-    driver.require_profile=lambda *args:(9,4,0,4015) if case=='wrong-version' else (9,5,0,4050)
-    moves=[]
-    def move(handle,x,y,width,height,repaint):
-        moves.append((handle,x,y,width,height,repaint))
-        if case!='failed-move':
-            driver.capture=lambda:View(1,Box(x,y,x+width,y+height),Image.new('RGB',(width,height)))
+    view=View(1,Box(*origin,origin[0]+size[0],origin[1]+size[1]),Image.new('RGB',size))
     driver.capture=lambda:view
-    driver.foreground=lambda *args:2 if case=='lost-focus' else 1
-    monkeypatch.setattr(win32api,'MonitorFromWindow',lambda *args:1)
-    monkeypatch.setattr(win32api,'GetMonitorInfo',lambda *args:{'Work':work})
-    monkeypatch.setattr(win32gui,'GetWindowRect',lambda *args:(0,1,1600,901) if case=='moved' else box.tuple())
-    monkeypatch.setattr(win32gui,'MoveWindow',move)
-    monkeypatch.setattr(module.time,'sleep',lambda *args:None)
-    if case in {'moved','lost-focus','failed-move'}:
+    checked=[]
+    def geometry(captured):
+        if case in {'ambiguous','clipped'}:raise BridgeError('Uncertain layout')
+        return editor_geometry(View(1,Box(0,0,1616,916),Image.new('RGB',(1616,916))))
+    driver.geometry=geometry
+    def point(*args):
+        if case in {'moved','lost-focus'}:raise BridgeError('Window changed')
+        checked.append(True)
+    driver.point=point
+    monkeypatch.setattr(win32gui,'MoveWindow',lambda *args:pytest.fail('Editor resizing is forbidden'))
+    if case in {'moved','lost-focus','ambiguous','clipped'}:
         with pytest.raises(BridgeError):driver.restore_measured_editor()
-    else:driver.restore_measured_editor()
-    if case in {'valid','negative-origin','failed-move'}:
-        assert moves==[(1,origin[0]-8,origin[1]-8,1616,916,True)]
-    else:assert not moves
+        assert not checked
+    else:
+        driver.restore_measured_editor();assert checked==[True]
 
 
 @pytest.mark.parametrize('size',[(1600,900),(1616,915),(1680,916),(1920,1080)])
@@ -114,6 +109,7 @@ def test_900_playback_uses_footer_only_and_rejects_ambiguity(tmp_path,state):
             image.paste(icon,(872,551))
     view=View(1,Box(-8,-8,1608,908),image)
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda v:editor_geometry(v)
     driver.capture=lambda:view
     driver.require_profile=lambda *args:(9,5,0,4050)
     points=[]
@@ -136,6 +132,7 @@ def test_900_toolbar_locates_exact_glyph_without_guessing(tmp_path,case):
         if case=='old-decoy':image.paste(icon,(199,594))
     view=View(1,Box(-8,-8,1608,908),image)
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda v:editor_geometry(v)
     driver.require_profile=lambda *args:(9,5,0,4050)
     driver.point=lambda *args:pytest.fail('Unrecognized toolbar must not guess a pointer target')
     if case in {'valid','shifted-group'}:
@@ -158,6 +155,7 @@ def test_900_profile_rejects_legacy_version(tmp_path):
 def test_900_counter_pair_requires_consensus_and_ignores_preview(tmp_path,monkeypatch,case):
     import capcut_windows.drafts as drafts
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda v:editor_geometry(v)
     view=View(1,Box(-8,-8,1608,908),Image.new('RGB',(1616,916)))
     driver.capture=lambda:view
     driver.require_profile=lambda *args:(9,5,0,4050)
@@ -201,30 +199,33 @@ def test_900_guidance_refuses_legacy_version_before_ocr_or_input(tmp_path):
 @pytest.mark.parametrize('case',['valid','wrong-process','shifted','too-tall','disagree'])
 def test_900_history_accepts_only_bounded_same_process_menu_transition(tmp_path,monkeypatch,case):
     import sys
+    import win32api,win32gui
     from types import SimpleNamespace
     original=View(1,Box(-8,-8,1608,908),Image.new('RGB',(1616,916),'white'))
     menu=View(2,Box(1 if case=='shifted' else 0,0,1600,940 if case=='too-tall' else 903),
               Image.new('RGB',(1600,940 if case=='too-tall' else 903),'white'))
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda v:editor_geometry(v)
     driver.require_profile=lambda *args:(9,5,0,4050)
     driver.active_draft=lambda:'Trial'
     clicks=[]
     driver.capture=lambda:menu if clicks else original
-    driver.recognize_label=lambda *args,**kwargs:Box(720,12,780,22)
+    driver.recognize_label=lambda captured,*args,**kwargs:Box(720,12,780,22) if captured is original else Box(712,4,772,14)
     driver.point=lambda *args:None
     driver.click_box=lambda *args:clicks.append(True)
     phases=['Menu','Edit','Recovery']
     def words(view,region,scale,**kwargs):
         if region.left==560:return []
         phase=len(clicks)
-        if phase==1:assert region==Box(90,60,145,86)
-        if phase==2:assert region==Box(222,78,300,114)
         text='Undo' if case=='disagree' and phase==2 and scale==3 else phases[phase]
         box=Box(250,105,280,115) if phase==2 else Box(100,12+phase*57,125,22+phase*57)
         return [Word(text,96,box,(1,1,1,1))]
     driver.words=words
     monkeypatch.setitem(sys.modules,'win32process',SimpleNamespace(
         GetWindowThreadProcessId=lambda handle:(10,21 if case=='wrong-process' and handle==2 else 20)))
+    monkeypatch.setattr(win32api,'MonitorFromWindow',lambda *args:1)
+    monkeypatch.setattr(win32api,'GetMonitorInfo',lambda *args:{'Monitor':(0,0,1600,900)})
+    monkeypatch.setattr(win32gui,'GetWindowRect',lambda handle:original.box.tuple())
     ticks=iter(range(100))
     monkeypatch.setattr(module.time,'monotonic',lambda:next(ticks))
     monkeypatch.setattr(module.time,'sleep',lambda *args:None)

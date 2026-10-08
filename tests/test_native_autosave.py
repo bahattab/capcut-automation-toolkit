@@ -10,7 +10,7 @@ from capcut_windows.errors import BridgeError
 from capcut_windows.vision import WindowsVision, View, Box, Word
 
 
-@pytest.mark.parametrize('case',['valid','wrong-timestamp','invalid-clock','disagree','changed-project','changed-file'])
+@pytest.mark.parametrize('case',['valid','coarse-auto-misread','refined-auto-misread','wrong-timestamp','invalid-clock','disagree','changed-project','changed-file'])
 def test_autosave_requires_native_consensus_stable_project_and_matching_file(tmp_path,monkeypatch,case):
     path=tmp_path/'draft_content.json'
     path.write_text('{}')
@@ -26,7 +26,7 @@ def test_autosave_requires_native_consensus_stable_project_and_matching_file(tmp
     driver.capture=lambda:view
     def words(captured,region,scale,**kwargs):
         value='25:00:00' if case=='invalid-clock' else '23:59:59' if case=='disagree' and scale==3 else clock
-        return [Word('Auto',95,Box(182,13,206,22),(1,1,1,1)),
+        return [Word('Avto' if case=='refined-auto-misread' or (case=='coarse-auto-misread' and kwargs.get('psm')==11) else 'Auto',95,Box(182,13,206,22),(1,1,1,1)),
                 Word('saved:',95,Box(209,13,242,22),(1,1,1,1)),
                 Word(value,95,Box(245,13,291,22),(1,1,1,1))]
     driver.words=words
@@ -38,7 +38,7 @@ def test_autosave_requires_native_consensus_stable_project_and_matching_file(tmp
     driver._clip_views=clips
     monkeypatch.setattr(drafts,'DraftStore',lambda settings:type('Store',(),{'content_path':lambda self,name:path})())
     monkeypatch.setattr(module.time,'sleep',lambda seconds:None)
-    if case=='valid':
+    if case in {'valid','coarse-auto-misread'}:
         assert driver.save()=={'active_draft':'Trial','status':'native_autosave_confirmed','effect_verified':False,
                               'verification_scope':'autosave_record_and_primary_geometry','latest_full_state_verified':False}
         assert checks==[True]

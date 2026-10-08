@@ -1,0 +1,18 @@
+{
+  "native_dpi": 96,
+  "native_scale": 1.0,
+  "synthetic_asset_scales": [
+    0.75,
+    1,
+    1.25,
+    1.5,
+    1.75,
+    2,
+    2.5,
+    3,
+    4
+  ],
+  "physical_coordinate_guards_tested": true,
+  "native_high_dpi_verified": false,
+  "limitation": "Exact export footer recognition may reject different high-DPI rendering; native DPI acceptance is limited to 100 percent."
+}

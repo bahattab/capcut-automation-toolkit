@@ -1,5 +1,16 @@
 # Verification
 
+## 0.3 adaptive layout acceptance — 2026-10-08
+
+**568 tests passed**, with zero failures, errors or skips. This release removes the 9.5 editor resolution allowlist and automatic resizing of an identified editor. Four independent toolbar glyphs and the Cover control determine panel regions. Duplicate normal/hover variants and mixed playback states are rejected together. Native history allows a bounded monitor compositor shadow only while the process, editor rectangle and project title remain stable.
+
+- [Native acceptance](verification/native-adaptive-acceptance.json): 1280×760 and 1920×1080 split/Undo/Redo/Undo/save state comparisons; 1536×864 inspection/seek/export; installed 1600×900 inspection/seek/split/Undo/save/export. `open` retained the installed editor rectangle.
+- [Exports](verification/export-adaptive-summary.json): three new synthetic 1920×1080 H.264, 24 fps, six-second exports, independently probed and fully decoded.
+- [Regression](verification/tests-adaptive-summary.json), [independent review](verification/review-adaptive-summary.json), [package parity](verification/package-adaptive-summary.json) and [preservation](verification/preservation-adaptive-summary.json).
+- [DPI scope](verification/dpi-adaptive-summary.json): actual native monitors are 96 DPI. Synthetic assets and physical coordinates cover 75–400% scaling. Native higher-DPI rendering remains unverified and strict export-footer checks may reject it.
+
+Native acceptance remains bounded to CapCut 9.5.0.4050, English UI, readable Latin titles, visible primary timeline controls and the supported local export settings. Dispatch receipts are supported by independent saved-state comparisons; no fresh claim is made for every historical command at every size. Public evidence excludes personal paths, user media, raw desktop captures and application logs. The archived 0.2 resizing behavior below describes that release and is superseded in 0.3.
+
 ## 0.2 measured 900p acceptance — 2026-10-08
 
 503 regression tests passed with no failures, errors or skips. Native acceptance is bounded to CapCut 9.5.0.4050, English UI, the exact 1600×900 work area, restored 1616×916 editor frame, and 720×663 local export dialog. Native history labels are checked in both OCR scales, including the inset menu after reopening.

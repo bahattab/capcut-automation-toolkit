@@ -1,17 +1,25 @@
 # CapCut Automation Toolkit for Windows
 
-Windows port with verified CapCut 9.5 workflows.
+Windows automation with adaptive CapCut 9.5 editor geometry.
 
 
 [GitHub repository](https://github.com/bahattab/capcut-automation-toolkit)
 
 Windows port of [matt-j-penny/capcut-kit](https://github.com/matt-j-penny/capcut-kit), upstream commit `304c125b626cd35843dc0ba723547ee7ff54eee5`.
 
+Version **0.3.0** detects editor regions from independent native toolbar, Cover and timeline anchors. It no longer requires an approved screen resolution and keeps an identified editor at its current size when opened. Controls are found from their observed positions rather than by stretching coordinates from another screen.
+
+Native verification on **CapCut 9.5.0.4050** covers **1280×760, 1600×900, 1536×864 and 1920×1080** windows across two monitors, including a negative vertical origin. Seek and clip inspection, saved split/Undo/Redo comparisons, autosave and local export were checked. Three new exports passed independent full FFmpeg decoding. The installed command was checked on the primary monitor; all 35 baseline project files remain unchanged. **568 tests passed**.
+
+The adaptive profile requires English UI, a readable unique Latin project title, visible primary clips and unclipped native controls. Ambiguous icons, changed ownership, stale pixels or denied focus stop the command. Logical geometry and native template matching support DPI conversion while pixel guards retain the original physical raster. Both available monitors were tested at **100% scaling**; 75–400% asset and coordinate tests are synthetic, not native acceptance at those display settings. Strict export-footer recognition may reject different high-DPI rendering. Arbitrary CapCut versions, UI languages and export settings are not claimed verified.
+
+### Previous release evidence
+
 Original Windows release acceptance: **443 tests passed**, zero failures or skips. All 35 upstream commands have native acceptance evidence on **CapCut 9.5.0.4050**. Ten disposable projects survived opening and full saved-state reopening; exported video, Arabic/emoji text, overlay timing, transforms, animation and audio were independently checked. The installed `capcut-kit` command passed a final native smoke test. Original project preservation: 33 baseline file hashes unchanged.
 
 The original optical profile uses English UI, readable unique Latin project titles, a fully visible Home List row, editor size 1680Ã—1050/1051, and the 720Ã—663 export dialog. Local export was checked at 1920Ã—1080, H.264/MP4, 24 and 30 fps, with cloud sync disabled. Other versions, layouts, languages and export settings need their own native acceptance. Uncertain recognition stops before input. Close unrelated modal dialogs before commands; title reading may take up to three minutes on a busy desktop.
 
-The 0.2 update adds the measured **1600Ã—900 work area / 1616Ã—916 editor frame** on CapCut 9.5.0.4050, with **503 regression tests passed**. `open` restores that frame when Qt reopens an identified project at the exact 1600Ã—900 work-area bounds. It adapts footer counters, timeline/cover bounds, toolbar glyphs, shortcut controls and native history menus. Counter refinement requires two agreeing confident readings. Windows focus denial returns a retry instruction without sending input to another app. Local export also supports a measured pane without a cloud checkbox: every footer pixel, the scrollbar endpoint and two OCR readings must match; individual RGB channels may differ by at most one due to raster rounding. An unreadable cloud option never counts as disabled. This profile is deliberately strict and rejects changed pane settings or appearance.
+The 0.2 update adds the measured **1600Ã—900 work area / 1616Ã—916 editor frame** on CapCut 9.5.0.4050, with **503 regression tests passed**. In 0.2, `open` restored that frame when Qt reopens an identified project at the exact 1600Ã—900 work-area bounds. It adapts footer counters, timeline/cover bounds, toolbar glyphs, shortcut controls and native history menus. Counter refinement requires two agreeing confident readings. Windows focus denial returns a retry instruction without sending input to another app. Local export also supports a measured pane without a cloud checkbox: every footer pixel, the scrollbar endpoint and two OCR readings must match; individual RGB channels may differ by at most one due to raster rounding. An unreadable cloud option never counts as disabled. This profile is deliberately strict and rejects changed pane settings or appearance.
 
 Native 900p acceptance includes split/undo/redo, delete, both trims, markers, fit and playback; two synthetic projects survived full saved-state reopening and exported 1920×1080 H.264 at 24 fps. Composite Arabic/emoji text, animated overlays, graphics and muted audio were checked in decoded frames and audio. All 35 baseline project files remain unchanged. The installed wheel matches all 31 source/template files and passed native inspection, split, undo and save. `save` requires the visible native Auto saved indicator after an edit; a freshly reopened unchanged project may not display it yet. The 900p extension does not imply fresh acceptance of every historical command or arbitrary layouts.
 

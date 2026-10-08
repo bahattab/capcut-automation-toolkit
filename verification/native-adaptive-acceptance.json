@@ -1,0 +1,73 @@
+{
+  "version": "0.3.0",
+  "capcut_version": "9.5.0.4050",
+  "windows": [
+    {
+      "window_size": [
+        1280,
+        760
+      ],
+      "monitor": 1,
+      "dpi": 96,
+      "seek_and_clip_inspection": true,
+      "split_saved_segments": 2,
+      "undo_exact_state_restored": true,
+      "redo_saved_state_verified": true,
+      "autosave_confirmed": true,
+      "final_complete_tracked_state_restored": true,
+      "installed_command": false
+    },
+    {
+      "window_size": [
+        1920,
+        1080
+      ],
+      "monitor": 2,
+      "dpi": 96,
+      "seek_and_clip_inspection": true,
+      "split_saved_segments": 2,
+      "undo_exact_state_restored": true,
+      "redo_saved_state_verified": true,
+      "autosave_confirmed": true,
+      "final_complete_tracked_state_restored": true,
+      "installed_command": false
+    },
+    {
+      "window_size": [
+        1600,
+        900
+      ],
+      "monitor": 1,
+      "dpi": 96,
+      "seek_and_clip_inspection": true,
+      "split_saved_segments": 2,
+      "undo_exact_state_restored": true,
+      "redo_saved_state_verified": false,
+      "autosave_confirmed": true,
+      "final_complete_tracked_state_restored": true,
+      "installed_command": true
+    },
+    {
+      "window_size": [
+        1536,
+        864
+      ],
+      "monitor": 2,
+      "dpi": 96,
+      "seek_seconds": 1,
+      "clip_inspection": true,
+      "export_verified": true
+    }
+  ],
+  "installed_open_preserved_window_rectangle": true,
+  "negative_monitor_vertical_origin_verified": true,
+  "tracked_state_keys": [
+    "duration",
+    "fps",
+    "tracks",
+    "materials",
+    "keyframes",
+    "markers",
+    "time_marks"
+  ]
+}

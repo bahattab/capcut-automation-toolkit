@@ -28,6 +28,15 @@ EDITOR_SIZES=frozenset({(1680,1050),(1680,1051),(1616,916)})
 
 
 @backend
+def window_scale(handle: int) -> float:
+    import ctypes
+    dpi=ctypes.windll.user32.GetDpiForWindow(handle)
+    if not 72<=dpi<=384:
+        raise BridgeError('The native window DPI could not be verified.')
+    return dpi/96
+
+
+@backend
 def physical_click(point: tuple[int,int], guard: Callable[[],None], clicks: int = 1) -> None:
     """Send exact physical button events after a caller's native ownership guard."""
     import win32api
@@ -100,6 +109,15 @@ class View:
     handle: int
     box: Box  # absolute desktop coordinates
     image: Image.Image
+    scale: float = 1.0  # physical pixels per logical UI pixel
+    raw_image: Image.Image | None = None
+
+    def physical(self, target: Box) -> Box:
+        return Box(math.floor(target.left*self.scale),math.floor(target.top*self.scale),
+                   math.ceil(target.right*self.scale),math.ceil(target.bottom*self.scale))
+
+    def raster(self, raw: Image.Image) -> Image.Image:
+        return raw if self.scale==1 else raw.resize(self.image.size,Image.Resampling.LANCZOS)
 
 
 @dataclass(frozen=True)
@@ -379,24 +397,19 @@ def template_matches(image: Image.Image, template: Image.Image, region: Box, thr
     pattern = template.convert('L').point(lambda value:255 if value>=threshold else 0)
     data = search.tobytes()
     expected = pattern.tobytes()
-    pixels = list(expected)
-    # A bright foreground pixel gives far fewer candidates than dark background.
-    if not any(pixels) or all(pixels):
+    rows=[expected[y*pattern.width:(y+1)*pattern.width] for y in range(pattern.height)]
+    distinct=[(y,row) for y,row in enumerate(rows) if 0 in row and 255 in row]
+    if not distinct:
         raise BridgeError('The icon template has no distinct foreground geometry.')
-    index = pixels.index(255)
-    anchor = bytes([255])
-    anchor_x,anchor_y = index%pattern.width,index//pattern.width
+    anchor_y,anchor=max(distinct,key=lambda item:sum(a!=b for a,b in zip(item[1],item[1][1:])))
     matches: list[Box] = []
     start = 0
     while True:
         position = data.find(anchor,start)
-        if position<0:
-            break
-        start = position+1
-        pixel = position
-        x,y = pixel%search.width-anchor_x,pixel//search.width-anchor_y
-        if x<0 or y<0 or x+pattern.width>search.width or y+pattern.height>search.height:
-            continue
+        if position<0:break
+        start=position+1
+        x,y=position%search.width,position//search.width-anchor_y
+        if x+pattern.width>search.width or y<0 or y+pattern.height>search.height:continue
         if search.crop((x,y,x+pattern.width,y+pattern.height)).tobytes()==expected:
             matches.append(Box(region.left+x,region.top+y,region.left+x+pattern.width,region.top+y+pattern.height))
     return matches
@@ -407,6 +420,29 @@ def template_box(image: Image.Image, template: Image.Image, region: Box, thresho
     matches=template_matches(image,template,region,threshold)
     if len(matches)!=1:
         raise BridgeError('The versioned CapCut icon is missing or ambiguous. No input was sent.')
+    return matches[0]
+
+
+@backend
+def view_template_matches(view: View, template: Image.Image, region: Box, threshold: int = 150) -> list[Box]:
+    """Match glyph raster variants at native DPI; do not stretch a screen layout."""
+    if view.scale==1:return template_matches(view.image,template,region,threshold)
+    if view.raw_image is None or not math.isfinite(view.scale) or not .75<=view.scale<=4:
+        raise BridgeError('Native DPI raster evidence is unavailable.')
+    size=(round(template.width*view.scale),round(template.height*view.scale))
+    physical=view.physical(region)
+    results=set()
+    for filter in (Image.Resampling.NEAREST,Image.Resampling.BILINEAR,Image.Resampling.BICUBIC,Image.Resampling.LANCZOS):
+        for box in template_matches(view.raw_image,template.resize(size,filter),physical,threshold):
+            results.add(Box(round(box.left/view.scale),round(box.top/view.scale),round(box.right/view.scale),round(box.bottom/view.scale)))
+    return sorted(results,key=lambda box:box.tuple())
+
+
+@backend
+def view_template_box(view: View, template: Image.Image, region: Box, threshold: int = 150) -> Box:
+    matches=view_template_matches(view,template,region,threshold)
+    if len(matches)!=1:
+        raise BridgeError('The native DPI glyph is missing or ambiguous. No input was sent.')
     return matches[0]
 
 
@@ -456,6 +492,47 @@ def editor_geometry(view: View) -> EditorGeometry:
     raise BridgeError('The editor layout requires native verification at this window size.')
 
 
+@backend
+def adaptive_geometry(view: View) -> EditorGeometry:
+    """Locate an editor from corroborating native anchors, never a resized screen map."""
+    w,h=view.image.size
+    if w<800 or h<500 or w>8192 or h>8192:
+        raise BridgeError('The visible editor is too small or large for bounded recognition.')
+    templates=Path(__file__).with_name('templates')
+    search=Box(0,h//4,min(w//2,720),h-30)
+    anchors=[]
+    for command in ('split','trim-left','trim-right','delete'):
+        matches=set()
+        for suffix in ('','-hover'):
+            with Image.open(templates/f'capcut-9.4-{command}{suffix}.png') as icon:
+                matches.update(view_template_matches(view,icon,search))
+        if len(matches)!=1:
+            raise BridgeError('The adaptive toolbar anchors are missing or ambiguous.')
+        anchors.append(matches.pop())
+    if max(b.center[1] for b in anchors)-min(b.center[1] for b in anchors)>3:
+        raise BridgeError('The adaptive toolbar anchors do not share one row.')
+    if any(a.right>=b.left or not 15<=b.center[0]-a.center[0]<=90 for a,b in zip(anchors,anchors[1:])):
+        raise BridgeError('The adaptive toolbar anchor order or spacing is uncertain.')
+    top=min(b.top for b in anchors)-9
+    bottom=max(b.bottom for b in anchors)+10
+    if top<85 or bottom+35>=h:
+        raise BridgeError('The editor panels are clipped.')
+    covers=set()
+    cover_region=Box(0,bottom,min(w//3,320),h-8)
+    for name in ('capcut-9.4-cover.png','capcut-9.5-cover-900.png','capcut-9.5-cover-900-reopened.png'):
+        with Image.open(templates/name) as icon:
+            covers.update(view_template_matches(view,icon,cover_region))
+    if len(covers)!=1:
+        raise BridgeError('The adaptive primary track anchor is missing or ambiguous.')
+    cover=covers.pop()
+    if cover.top<bottom+45 or cover.right>=w-200:
+        raise BridgeError('The primary track does not follow the toolbar and ruler.')
+    # Footer lies above the independently detected timeline toolbar; never scan source video clocks.
+    counters=Box(0,top-40,w,top-8)
+    ruler=Box(cover.right+4,bottom-4,w-8,bottom+27)
+    return EditorGeometry((counters,),counters,ruler,cover_region,Box(0,top,w-8,bottom),Box(w//2,0,w,min(top,65)))
+
+
 class WindowsVision:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -463,9 +540,11 @@ class WindowsVision:
 
     @backend
     def geometry(self, view: View) -> EditorGeometry:
-        if view.image.size==(1616,916) and self.require_profile('save')!=(9,5,0,4050):
-            raise BridgeError('The 900p editor layout requires CapCut 9.5.0.4050.')
-        return editor_geometry(view)
+        if self.require_profile('save')!=(9,5,0,4050):
+            if view.image.size==(1616,916):
+                raise BridgeError('The 900p editor layout requires CapCut 9.5.0.4050.')
+            return editor_geometry(view)
+        return adaptive_geometry(view)
 
     @backend
     def require_profile(self, controls: str = 'editor') -> tuple[int,int,int,int]:
@@ -635,16 +714,21 @@ class WindowsVision:
         box = Box(*win32gui.GetWindowRect(handle))
         if box.right<=box.left or box.bottom<=box.top:
             raise BridgeError('CapCut has no usable capture area.')
+        factor=window_scale(handle)
         image = ImageGrab.grab(bbox=box.tuple(),all_screens=True)
         if self.foreground(False)!=handle or Box(*win32gui.GetWindowRect(handle))!=box:
             raise BridgeError('The CapCut window changed during capture. Try again.')
-        return View(handle,box,image)
+        if window_scale(handle)!=factor:
+            raise BridgeError('The native window DPI changed during capture.')
+        logical=image if factor==1 else image.resize((round(image.width/factor),round(image.height/factor)),Image.Resampling.LANCZOS)
+        return View(handle,box,logical,factor,image)
 
     @backend
     def screenshot(self, target: str) -> str:
         path = Path(target).expanduser().resolve()
         path.parent.mkdir(parents=True,exist_ok=True)
-        self.capture().image.save(path)
+        view=self.capture()
+        (view.raw_image or view.image).save(path)
         if not path.is_file() or path.stat().st_size==0:
             raise BridgeError('CapCut screenshot was not created.')
         return str(path)
@@ -657,9 +741,11 @@ class WindowsVision:
         self.paused()
         name = self.active_draft()
         view = self.capture()
-        if view.image.size not in EDITOR_SIZES:
-            raise BridgeError('The autosave layout requires native verification.')
-        region = Box(180,0,325,32)
+        self.geometry(view)
+        header=Box(0,0,view.image.width//3,35)
+        # Coarse text locates the field only; both isolated readings below must be confident.
+        anchor=label_box(self.words(view,header,scale=4,psm=11,contrast=True),'saved:',0)
+        region=Box(max(0,anchor.left-34),0,min(view.image.width//3,anchor.right+100),32)
         readings = [self.words(view,region,scale=scale,psm=7,contrast=True) for scale in (4,3)]
         clocks: list[str] = []
         labels: list[Box] = []
@@ -739,17 +825,22 @@ class WindowsVision:
         import win32process
         if self.foreground(False)!=view.handle or Box(*win32gui.GetWindowRect(view.handle))!=view.box:
             raise BridgeError('CapCut moved or lost focus. No input was sent.')
+        if view.raw_image is not None and window_scale(view.handle)!=view.scale:
+            raise BridgeError('The native window DPI changed. No input was sent.')
         x,y = box.center
         if not (all(isinstance(v,int) and not isinstance(v,bool) for v in box.tuple())
                 and 0<=box.left<box.right<=view.image.width and 0<=box.top<box.bottom<=view.image.height):
             raise BridgeError('The visual control is outside CapCut.')
-        absolute = view.box.left+x,view.box.top+y
+        absolute = view.box.left+round(x*view.scale),view.box.top+round(y*view.scale)
         handle = win32gui.WindowFromPoint(absolute)
         if (not handle or win32process.GetWindowThreadProcessId(handle)[1] not in {p.pid for p in processes()}
                 or win32gui.GetAncestor(handle,2)!=view.handle):
             raise BridgeError('Another window covers the visual control. No input was sent.')
         latest = ImageGrab.grab(bbox=view.box.tuple(),all_screens=True)
-        if latest.crop(box.tuple()).tobytes()!=view.image.crop(box.tuple()).tobytes():
+        physical=view.physical(box)
+        if view.scale!=1 and view.raw_image is None:
+            raise BridgeError('Physical DPI evidence is unavailable. No input was sent.')
+        if latest.crop(physical.tuple()).tobytes()!=(view.raw_image or view.image).crop(physical.tuple()).tobytes():
             raise BridgeError('The visual control changed since recognition. No input was sent.')
         return absolute
 
@@ -759,8 +850,7 @@ class WindowsVision:
         self.require_profile('playback')
         fps = float(DraftStore(self.settings).load(self.active_draft()).get('fps',0))
         view = self.capture()
-        if view.image.size not in EDITOR_SIZES:
-            raise BridgeError('The player layout requires native verification at this window size.')
+        self.geometry(view)
         # This profile locates counters in the player footer, outside the video
         # image where a source can contain its own burned-in timecode.
         regions = self.geometry(view).counters
@@ -774,7 +864,7 @@ class WindowsVision:
                 continue
             self.point(view,first[2])
             return first[0],first[1]
-        if view.image.size==(1616,916):
+        if len(regions)==1:
             # Neighbouring footer buttons can lower full-line OCR confidence.
             # Locate exactly two clocks, then read each isolated field twice;
             # never accept a third clock or substitute a different clock value.
@@ -786,8 +876,8 @@ class WindowsVision:
             for scale in (4,3):
                 refined=[]
                 for word in candidates:
-                    field=Box(max(regions[0].left,word.box.left-4),473,
-                              min(regions[0].right,word.box.right+4),495)
+                    field=Box(max(regions[0].left,word.box.left-4),max(regions[0].top,word.box.top-6),
+                              min(regions[0].right,word.box.right+4),min(regions[0].bottom,word.box.bottom+7))
                     readings=self.words(view,field,scale=scale,psm=7,contrast=True)
                     if len(readings)!=1 or readings[0].text!=word.text:
                         raise BridgeError('The isolated player clock disagrees with its footer field.')
@@ -800,14 +890,68 @@ class WindowsVision:
         raise BridgeError('The player counters did not agree across two independent readings.')
 
     @backend
+    def dismiss_timeline_tip(self, view: View) -> None:
+        """Close only a fully recognized owned native first-split tutorial."""
+        import win32gui,win32process
+        candidates=[]
+        for handle in self.handles():
+            if (win32gui.GetClassName(handle)=='Qt622QWindowToolSaveBits'
+                    and win32gui.GetWindowText(handle)=='CapCut'
+                    and win32gui.GetWindow(handle,4)==view.handle):
+                absolute=Box(*win32gui.GetWindowRect(handle))
+                local=Box(round((absolute.left-view.box.left)/view.scale),round((absolute.top-view.box.top)/view.scale),
+                          round((absolute.right-view.box.left)/view.scale),round((absolute.bottom-view.box.top)/view.scale))
+                if not (0<=local.left<local.right<=view.image.width and 0<=local.top<local.bottom<=view.image.height):continue
+                try:
+                    readings=[]
+                    for scale in (4,3):
+                        words=self.words(view,local,scale=scale,psm=6,contrast=True)
+                        labels=[label_box(words,text,85) for text in ('One-click to help you','cut long videos apart','OK')]
+                        readings.append(labels)
+                    if any(abs(a-b)>3 for first,second in zip(*readings) for a,b in zip(first.tuple(),second.tuple())):
+                        raise BridgeError('The tutorial readings disagree.')
+                    candidates.append((handle,absolute,local,readings[0][-1]))
+                except BridgeError:continue
+        if len(candidates)!=1:
+            raise BridgeError('A unique owned split tutorial could not be verified.')
+        handle,absolute,local,button=candidates[0]
+        point=(view.box.left+round(button.center[0]*view.scale),view.box.top+round(button.center[1]*view.scale))
+        def guard() -> None:
+            if (self.foreground(False)!=view.handle or Box(*win32gui.GetWindowRect(view.handle))!=view.box
+                    or Box(*win32gui.GetWindowRect(handle))!=absolute
+                    or win32gui.GetWindow(handle,4)!=view.handle
+                    or win32gui.GetAncestor(win32gui.WindowFromPoint(point),2)!=handle
+                    or win32process.GetWindowThreadProcessId(handle)[1]!=win32process.GetWindowThreadProcessId(view.handle)[1]):
+                raise BridgeError('The owned tutorial moved or became covered.')
+            latest=ImageGrab.grab(bbox=view.box.tuple(),all_screens=True)
+            physical=view.physical(local)
+            if latest.crop(physical.tuple()).tobytes()!=(view.raw_image or view.image).crop(physical.tuple()).tobytes():
+                raise BridgeError('The owned tutorial changed since recognition.')
+        physical_click(point,guard)
+        time.sleep(.2)
+
+    @backend
+    def playback_candidates(self, view: View) -> list[tuple[str,Box]]:
+        region=self.geometry(view).playback
+        matches=[]
+        for state in ('play','pause'):
+            with Image.open(Path(__file__).with_name('templates')/f'capcut-9.4-{state}.png') as icon:
+                matches.extend((state,box) for box in view_template_matches(view,icon,region))
+        return matches
+
+    @backend
     def paused(self) -> bool:
         self.require_profile('playback')
         view = self.capture()
-        if view.image.size not in EDITOR_SIZES:
-            raise BridgeError('The player layout requires native verification at this window size.')
-        with Image.open(Path(__file__).with_name('templates')/'capcut-9.4-play.png') as image:
-            button = template_box(view.image,image,self.geometry(view).playback)
-        self.point(view,button)
+        self.geometry(view)
+        matches=self.playback_candidates(view)
+        if not matches:
+            self.dismiss_timeline_tip(view)
+            view=self.capture()
+            matches=self.playback_candidates(view)
+        if len(matches)!=1 or matches[0][0]!='play':
+            raise BridgeError('A unique paused native player could not be verified. Pause playback first.')
+        self.point(view,matches[0][1])
         return True
 
     @backend
@@ -885,7 +1029,8 @@ class WindowsVision:
             # OCR tick centers can round one pixel outside the timeline at
             # zero. Click just inside, then verify/correct exact frame zero.
             x = math.ceil(origin+2)
-        if not 140<x<1600:
+        bounds=self.geometry(view).ruler
+        if not bounds.left<x<bounds.right:
             raise BridgeError('The requested time is outside the visible ruler. Fit the timeline first.')
         self.point(identity,title_box)
         self.click_box(view,Box(x-2,y-3,x+3,y+4))
@@ -942,11 +1087,11 @@ class WindowsVision:
             raise BridgeError('The live timeline differs from its saved metadata. Wait for autosave.')
         view = self.capture()
         title_box = self.recognize_label(view,self.words(view,Box(0,0,view.image.width,65),scale=4),name,identifier=True)
-        cover_templates=('capcut-9.5-cover-900.png','capcut-9.5-cover-900-reopened.png') if view.image.size==(1616,916) else ('capcut-9.4-cover.png',)
+        cover_templates=('capcut-9.4-cover.png','capcut-9.5-cover-900.png','capcut-9.5-cover-900-reopened.png')
         matches=set()
         for filename in cover_templates:
             with Image.open(Path(__file__).with_name('templates')/filename) as image:
-                matches.update(template_matches(view.image,image,self.geometry(view).cover))
+                matches.update(view_template_matches(view,image,self.geometry(view).cover))
         if len(matches)!=1:
             raise BridgeError('The versioned cover control is missing or ambiguous. No input was sent.')
         cover=matches.pop()
@@ -963,7 +1108,7 @@ class WindowsVision:
                 raise BridgeError('Main clip timing must be finite and positive.')
             expected.append((round(origin+start*spacing),round(origin+(start+duration)*spacing)))
             names.append(str(materials.get(segment['material_id'],{}).get('material_name','Untitled clip')))
-        region = Box(180,cover.top-19,1600,cover.top-16)
+        region = Box(cover.right+4,cover.top-19,self.geometry(view).ruler.right,cover.top-16)
         clip_bars(view.image,region,expected)
         self.point(view,region)
         clips = [VisualClip(label,(left,cover.top-19,right,cover.bottom+17),index,title_box)
@@ -995,7 +1140,7 @@ class WindowsVision:
             if selected.handle!=view.handle or selected.box!=view.box:
                 raise BridgeError('The editor moved during clip selection.')
             self.point(view,clip.project_box)
-            clip_bars(selected.image,Box(180,top,1600,top+3),
+            clip_bars(selected.image,Box(self.geometry(selected).ruler.left,top,self.geometry(selected).ruler.right,top+3),
                       [(item.rectangle[0],item.rectangle[2]) for item in clips])
             selected_indices = [candidate.index for candidate in clips
                                 if selection_border(selected.image,candidate.rectangle)]
@@ -1102,7 +1247,7 @@ class WindowsVision:
             left,top = min(word.box.left for word in words),min(word.box.top for word in words)
             right,bottom = max(word.box.right for word in words),max(word.box.bottom for word in words)
             result.append(OpticalElement(name,'','Text',
-                (view.box.left+left,view.box.top+top,right-left,bottom-top)))
+                (view.box.left+round(left*view.scale),view.box.top+round(top*view.scale),round((right-left)*view.scale),round((bottom-top)*view.scale))))
         return sorted(result,key=lambda element:(element.rectangle[1],element.rectangle[0]))
 
     @backend
@@ -1117,15 +1262,39 @@ class WindowsVision:
         if not all(isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
                    for value in (x,y)):
             raise BridgeError('Use finite physical screen coordinates.')
-        local_x,local_y = round(x)-view.box.left,round(y)-view.box.top
+        local_x,local_y = math.floor((round(x)-view.box.left)/view.scale),math.floor((round(y)-view.box.top)/view.scale)
         if not (0<=local_x<view.image.width and 0<=local_y<view.image.height):
             raise BridgeError('The requested physical pixel is outside CapCut.')
         return Box(local_x,local_y,local_x+1,local_y+1)
 
     @backend
+    def physical_point(self, view: View, point: tuple[int,int]) -> tuple[int,int]:
+        import win32gui,win32process
+        x,y=point
+        if view.raw_image is not None and window_scale(view.handle)!=view.scale:
+            raise BridgeError('The native window DPI changed. No input was sent.')
+        if (self.foreground(False)!=view.handle or Box(*win32gui.GetWindowRect(view.handle))!=view.box
+                or not view.box.left<=x<view.box.right or not view.box.top<=y<view.box.bottom):
+            raise BridgeError('The physical pixel is outside the unchanged CapCut window.')
+        handle=win32gui.WindowFromPoint(point)
+        if (not handle or win32gui.GetAncestor(handle,2)!=view.handle
+                or win32process.GetWindowThreadProcessId(handle)[1] not in {p.pid for p in processes()}):
+            raise BridgeError('Another window covers the physical pixel.')
+        if view.scale!=1 and view.raw_image is None:
+            raise BridgeError('Native physical DPI evidence is unavailable.')
+        raw=view.raw_image or view.image
+        local=(x-view.box.left,y-view.box.top)
+        latest=ImageGrab.grab(bbox=view.box.tuple(),all_screens=True)
+        if latest.getpixel(local)!=raw.getpixel(local):
+            raise BridgeError('The physical pixel changed since capture.')
+        return point
+
+    @backend
     def click_xy(self, x: float, y: float, clicks: int = 1) -> None:
         view = self.capture()
-        self.click_box(view,self.absolute_pixel(view,x,y),clicks)
+        self.absolute_pixel(view,x,y)
+        point=(round(x),round(y))
+        physical_click(point,lambda:self.physical_point(view,point),clicks)
 
     @backend
     def scroll(self, x: float, y: float, steps: int) -> None:
@@ -1133,12 +1302,15 @@ class WindowsVision:
         if not isinstance(steps,int) or isinstance(steps,bool) or not -100<=steps<=100 or steps==0:
             raise BridgeError('Use a nonzero wheel-step count between -100 and 100.')
         view = self.capture()
-        point = self.point(view,self.absolute_pixel(view,x,y))
+        self.absolute_pixel(view,x,y)
+        point=(round(x),round(y))
+        self.physical_point(view,point)
         def guard() -> None:
             if (self.foreground(False)!=view.handle
                     or Box(*win32gui.GetWindowRect(view.handle))!=view.box
                     or win32gui.GetAncestor(win32gui.WindowFromPoint(point),2)!=view.handle):
                 raise BridgeError('The scroll position is no longer owned by the active CapCut window.')
+            self.physical_point(view,point)
         physical_wheel(point,guard,steps)
 
     @backend
@@ -1245,7 +1417,7 @@ class WindowsVision:
                 matches.append(name)
             except BridgeError:
                 continue
-        if not matches and view.image.size in EDITOR_SIZES and self.require_profile('home')==(9,5,0,4050):
+        if not matches and self.require_profile('home')==(9,5,0,4050):
             title_region=Box(view.image.width//3,0,view.image.width*2//3,35)
             accepted:tuple[str,Box]|None=None
             for scale in (4,3,2):
@@ -1328,7 +1500,7 @@ class WindowsVision:
         if version==(9,5,0,4050):
             raise BridgeError('Use the native List project view before opening this project.')
         template = Image.open(Path(__file__).with_name('templates')/'capcut-9.4-home-view.png')
-        icon = template_box(view.image,template,Box(width//2,max(0,projects.top-30),width,min(height,projects.bottom+20)))
+        icon = view_template_box(view,template,Box(width//2,max(0,projects.top-30),width,min(height,projects.bottom+20)))
         self.click_box(view,icon)
         dropdown = self.capture()
         if dropdown.image.width<500:
@@ -1341,62 +1513,72 @@ class WindowsVision:
         self.click_label('List',region)
 
     @backend
+    def adaptive_history(self, command: str, project: str, initial: View) -> None:
+        """Recognize native menu columns while preserving the original editor."""
+        import win32api,win32gui,win32process
+        title_region=Box(initial.image.width//3,0,initial.image.width*2//3,35)
+        initial_title=self.recognize_label(initial,self.words(initial,title_region,scale=4,psm=7,contrast=True),project,identifier=True)
+        self.point(initial,initial_title)
+        monitor=win32api.GetMonitorInfo(win32api.MonitorFromWindow(initial.handle,2))['Monitor']
+        def target(text: str, region: Box, reference: View) -> tuple[View,Box]:
+            deadline=time.monotonic()+8
+            while True:
+                try:view=self.capture()
+                except BridgeError:
+                    if time.monotonic()>=deadline:raise
+                    time.sleep(.2);continue
+                delta=round(8*initial.scale)
+                same=((view.box.left,view.box.top,view.box.right)==(initial.box.left,initial.box.top,initial.box.right)
+                      and 0<=view.box.bottom-initial.box.bottom<=2*delta)
+                inset=(view.box.left==initial.box.left+delta and view.box.top==initial.box.top+delta
+                       and view.box.right==initial.box.right-delta and abs(view.box.bottom-initial.box.bottom)<=2*delta)
+                # Qt menus may use a monitor-sized native compositor root while
+                # the real editor retains its original rectangle underneath.
+                compositor=(view.handle!=initial.handle and Box(*win32gui.GetWindowRect(initial.handle))==initial.box
+                            and view.box.left in {monitor[0],monitor[0]-delta} and view.box.top in {monitor[1],monitor[1]-delta}
+                            and view.box.right in {monitor[2],monitor[2]+delta} and 0<=view.box.bottom-monitor[3]<=round(24*initial.scale))
+                if (view.scale!=initial.scale or not (same or inset or compositor)
+                        or win32process.GetWindowThreadProcessId(view.handle)[1]
+                        !=win32process.GetWindowThreadProcessId(initial.handle)[1]):
+                    raise BridgeError('The editor moved or changed ownership during native history.')
+                try:
+                    tx=round((initial.box.left-view.box.left)/view.scale)
+                    ty=round((initial.box.top-view.box.top)/view.scale)
+                    header=Box(max(0,initial_title.left+tx-12),max(0,ty),min(view.image.width,initial_title.right+tx+12),min(view.image.height,ty+35))
+                    title=self.recognize_label(view,self.words(view,header,scale=4,psm=7,contrast=True),project,identifier=True)
+                    if max(abs(a-b) for a,b in zip(title.tuple(),(initial_title.left+tx,initial_title.top+ty,initial_title.right+tx,initial_title.bottom+ty)))>3:
+                        raise BridgeError('The native project title moved during menu recognition.')
+                    dx=round((reference.box.left-view.box.left)/view.scale);dy=round((reference.box.top-view.box.top)/view.scale)
+                    area=Box(max(0,region.left+dx),max(0,region.top+dy),min(view.image.width,region.right+dx),min(view.image.height,region.bottom+dy))
+                    boxes=[label_box(self.words(view,area,scale=k,contrast=True),text,85) for k in (4,3)]
+                    if max(abs(a-b) for a,b in zip(boxes[0].tuple(),boxes[1].tuple()))>3:
+                        raise BridgeError('The native menu readings disagree.')
+                    if view.image.crop(boxes[0].tuple()).convert('L').getextrema()[1]<150:
+                        raise BridgeError('The requested native menu item is disabled.')
+                    self.point(view,title);self.point(view,boxes[0])
+                    return view,boxes[0]
+                except BridgeError:
+                    if time.monotonic()>=deadline:raise
+                    time.sleep(.2)
+        w,h=initial.image.size
+        view,menu=target('Menu',Box(0,0,min(w//3,420),40),initial)
+        self.click_box(view,menu)
+        view,edit=target('Edit',Box(max(0,menu.left-40),menu.bottom,min(w,menu.right+220),min(h,menu.bottom+300)),view)
+        self.click_box(view,edit)
+        y=edit.top-8 if command=='undo' else edit.bottom+4
+        view,item=target('Undo' if command=='undo' else 'Recovery',Box(edit.right+30,max(25,y),min(view.image.width,edit.right+340),min(view.image.height,y+38)),view)
+        self.click_box(view,item)
+
+    @backend
     def history_menu(self, command: str, project: str) -> None:
         """Use observed 9.5 native menu labels, avoiding global history hotkeys."""
         if self.require_profile('history')!=(9,5,0,4050) or command not in {'undo','redo'}:
             raise BridgeError('The native history menu profile is unavailable.')
         if self.active_draft()!=project:
             raise BridgeError('The history project changed before menu input.')
-        initial = self.capture()
-        if initial.image.size not in EDITOR_SIZES:
-            raise BridgeError('Close other menus before using native history.')
-
-        def menu_target(label: str, region: Box) -> tuple[View,Box]:
-            import win32process
-            deadline = time.monotonic()+8
-            last_error: BridgeError | None = None
-            while time.monotonic()<deadline:
-                try:
-                    view = self.capture()
-                    # Native menu roots extend their lower edge beyond the
-                    # editor. All recognized controls remain in the original
-                    # viewport; retain its exact origin and width instead of
-                    # treating the changing bottom shadow as a layout change.
-                    inset_menu=(initial.image.size==(1616,916) and view.image.width==1600 and 900<=view.image.height<=916
-                                and view.box.left==initial.box.left+8 and view.box.top==initial.box.top+8
-                                and view.box.right==initial.box.right-8
-                                and win32process.GetWindowThreadProcessId(view.handle)[1]
-                                ==win32process.GetWindowThreadProcessId(initial.handle)[1])
-                    if not inset_menu and (view.image.width!=initial.image.width or view.image.height<initial.image.height
-                            or (view.box.left,view.box.top,view.box.right)
-                            !=(initial.box.left,initial.box.top,initial.box.right)):
-                        raise BridgeError('The native menu layout changed.')
-                    title = self.recognize_label(view,self.words(view,Box(560,0,1120,65),scale=4),project,identifier=True)
-                    native_region=(Box(max(0,region.left-8),max(0,region.top-8),region.right-8,region.bottom-8)
-                                   if inset_menu else region)
-                    boxes = [label_box(self.words(view,native_region,scale=scale,psm=7,contrast=True),label,85)
-                             for scale in (4,3)]
-                    if max(abs(a-b) for a,b in zip(boxes[0].tuple(),boxes[1].tuple()))>3:
-                        raise BridgeError('The native menu label readings disagree.')
-                    if view.image.crop(boxes[0].tuple()).convert('L').getextrema()[1]<150:
-                        raise BridgeError('The requested native menu item is disabled.')
-                    self.point(view,title)
-                    self.point(view,boxes[0])
-                    return view,boxes[0]
-                except BridgeError as error:
-                    last_error = error
-                    time.sleep(.2)
-            if last_error is not None:
-                raise last_error
-            raise BridgeError('The native history menu did not become ready.')
-
-        menu_region=Box(90,6,150,32) if initial.image.size==(1616,916) else Box(90,6,124,29)
-        edit_region=Box(98,68,153,94) if initial.image.size==(1616,916) else Box(90,65,210,96)
-        history_region=(Box(230,55,308,94) if command=='undo' else Box(230,86,308,122)) if initial.image.size==(1616,916) else (Box(242,65,327,96) if command=='undo' else Box(242,97,327,128))
-        for label,region in (('Menu',menu_region),('Edit',edit_region),
-                             ('Undo' if command=='undo' else 'Recovery',history_region)):
-            view,target = menu_target(label,region)
-            self.click_box(view,target)
+        initial=self.capture()
+        self.geometry(initial)
+        self.adaptive_history(command,project,initial)
 
     @backend
     def toolbar_target(self, command: str, view: View) -> tuple[View,Box]:
@@ -1406,85 +1588,18 @@ class WindowsVision:
         import win32api
         labels = {'undo':('Undo',134),'redo':('Reset',171),'split':('Split',207),
                   'trim-left':('Delete left',243),'trim-right':('Delete right',279),'delete':('Delete',315)}
-        if command not in labels or view.image.size not in EDITOR_SIZES:
+        if command not in labels:
             raise BridgeError('The native toolbar profile could not be verified.')
         label,x = labels[command]
         geometry = self.geometry(view)
-        region = geometry.toolbar if view.image.size==(1616,916) else Box(x-18,588,x+18,614)
+        region = geometry.toolbar
+        matches=set()
         for suffix in ('','-hover'):
             with Image.open(Path(__file__).with_name('templates')/f'capcut-9.4-{command}{suffix}.png') as icon:
-                try:
-                    return view,template_box(view.image,icon,region)
-                except BridgeError:
-                    pass
-        if view.image.size==(1616,916):
-            # New toolbar groups can shift after workspace initialization.
-            # Do not hover a guessed x when the exact glyph cannot be identified.
+                matches.update(view_template_matches(view,icon,region))
+        if len(matches)!=1:
             raise BridgeError('A unique native toolbar glyph could not be verified in this layout.')
-        button = Box(x-10,590,x+10,612)
-        if view.image.crop(button.tuple()).convert('L').getextrema()[1]<150:
-            raise BridgeError('The requested toolbar button appears disabled.')
-        point = self.point(view,button)
-        # SetCursorPos uses physical pixels in this DPI-aware thread. Normalized
-        # mouse input rounds positions on wide, multiple-monitor desktops.
-        win32api.SetCursorPos(point)
-        if win32api.GetCursorPos()!=point:
-            raise BridgeError('The cursor did not reach the verified toolbar button.')
-        pid = win32process.GetWindowThreadProcessId(view.handle)[1]
-        deadline = time.monotonic()+3
-        candidates: list[tuple[int,Box]] = []
-        while time.monotonic()<deadline:
-            candidates = []
-            def each(handle: int, unused: object) -> None:
-                if (win32gui.IsWindowVisible(handle)
-                        and win32gui.GetClassName(handle)=='Qt622QWindowToolTipSaveBits'
-                        and win32process.GetWindowThreadProcessId(handle)[1]==pid):
-                    absolute = Box(*win32gui.GetWindowRect(handle))
-                    relative = Box(absolute.left-view.box.left,absolute.top-view.box.top,
-                                   absolute.right-view.box.left,absolute.bottom-view.box.top)
-                    if (relative.left<=x<relative.right and button.bottom+4<=relative.top<=button.bottom+24
-                            and 16<=relative.right-relative.left<=250 and 12<=relative.bottom-relative.top<=50
-                            and 0<=relative.left<relative.right<=view.image.width
-                            and 0<=relative.top<relative.bottom<=view.image.height):
-                        candidates.append((handle,relative))
-            win32gui.EnumWindows(each,None)
-            if len(candidates)==1:
-                break
-            time.sleep(.1)
-        if len(candidates)!=1:
-            raise BridgeError('A unique native tooltip did not appear below this toolbar button.')
-        handle,tip = candidates[0]
-        hovered = self.capture()
-        if hovered.handle!=view.handle or hovered.box!=view.box:
-            raise BridgeError('The editor changed while recognizing its toolbar.')
-        words = self.words(hovered,tip,scale=4,psm=7,contrast=True)
-        try:
-            first = tooltip_label(words,label)
-            second = tooltip_label(self.words(hovered,tip,scale=3,psm=7,contrast=True),label)
-        except BridgeError:
-            # Bindings may contain small keycap glyphs. Only refine a full
-            # reading that already names this exact action, never truncate a
-            # different action such as Delete right into Delete.
-            tooltip_label(words,label,0)
-            widths = {'Undo':30,'Reset':34,'Split':28,'Delete':38,'Delete left':62,'Delete right':70}
-            name_field = Box(tip.left+3,tip.top+1,min(tip.right-1,tip.left+3+widths[label]+6),tip.bottom-1)
-            first = tooltip_label(self.words(hovered,name_field,scale=4,psm=7,contrast=True),label)
-            second = tooltip_label(self.words(hovered,name_field,scale=3,psm=7,contrast=True),label)
-        if max(abs(a-b) for a,b in zip(first.tuple(),second.tuple()))>3:
-            raise BridgeError('The two toolbar tooltip readings disagree.')
-        observed = (win32gui.IsWindowVisible(handle), win32gui.GetClassName(handle),
-                    win32api.GetCursorPos(), win32process.GetWindowThreadProcessId(handle)[1],
-                    Box(*win32gui.GetWindowRect(handle)))
-        expected = (True, 'Qt622QWindowToolTipSaveBits', point, pid,
-                    Box(view.box.left+tip.left,view.box.top+tip.top,view.box.left+tip.right,view.box.top+tip.bottom))
-        if observed != expected:
-            LOG.error('Toolbar tooltip changed: observed=%r expected=%r', observed, expected)
-            raise BridgeError('The native tooltip changed during recognition.')
-        latest = ImageGrab.grab(bbox=hovered.box.tuple(),all_screens=True)
-        if latest.crop(tip.tuple()).tobytes()!=hovered.image.crop(tip.tuple()).tobytes():
-            raise BridgeError('The toolbar tooltip changed since recognition.')
-        self.point(hovered,button)
-        return hovered,button
+        return view,matches.pop()
 
     @backend
     def timeline_binding(self, command: str, project: str) -> str:
@@ -1496,10 +1611,9 @@ class WindowsVision:
         if self.active_draft()!=project:
             raise BridgeError('The timeline project changed before shortcut inspection.')
         editor=self.capture()
-        if editor.image.size not in EDITOR_SIZES:
-            raise BridgeError('The shortcut-button layout requires native verification.')
+        self.geometry(editor)
         with Image.open(Path(__file__).with_name('templates')/'capcut-9.5-shortcuts.png') as icon:
-            button=template_box(editor.image,icon,self.geometry(editor).shortcuts,threshold=100)
+            button=view_template_box(editor,icon,self.geometry(editor).shortcuts,threshold=100)
         self.click_box(editor,button)
         deadline=time.monotonic()+15
         while time.monotonic()<deadline:
@@ -1623,8 +1737,7 @@ class WindowsVision:
             self.require_profile('playback')
             name = self.active_draft()
             view = self.capture()
-            if view.image.size not in EDITOR_SIZES:
-                raise BridgeError('The playback layout requires native verification.')
+            self.geometry(view)
             title = self.recognize_label(view,self.words(view,Box(view.image.width//3,0,view.image.width*2//3,65),scale=4),name,identifier=True)
             # Hover an observed empty header patch, avoiding both the playback
             # button animation and the editable project-name hover effect.
@@ -1652,13 +1765,7 @@ class WindowsVision:
             if final.handle!=refreshed.handle or final.box!=refreshed.box:
                 raise BridgeError('The editor changed before playback input.')
             self.point(refreshed,fresh_title)
-            matches: list[tuple[str,Box]] = []
-            for state in ('play','pause'):
-                with Image.open(Path(__file__).with_name('templates')/f'capcut-9.4-{state}.png') as icon:
-                    try:
-                        matches.append((state,template_box(final.image,icon,self.geometry(final).playback)))
-                    except BridgeError:
-                        pass
+            matches=self.playback_candidates(final)
             if len(matches)!=1:
                 raise BridgeError('A unique native playback button could not be verified.')
             state,button = matches[0]
@@ -1752,7 +1859,7 @@ class WindowsVision:
                 if self.foreground(False)!=view.handle or Box(*win32gui.GetWindowRect(view.handle))!=view.box:
                     raise BridgeError('The editor changed while checking its guidance.')
                 x,y = box.center
-                point = view.box.left+x,view.box.top+y
+                point = view.box.left+round(x*view.scale),view.box.top+round(y*view.scale)
                 handle = win32gui.GetAncestor(win32gui.WindowFromPoint(point),2)
                 if (win32gui.GetClassName(handle)!='Qt622QWindowToolSaveBits'
                         or win32gui.GetWindowText(handle)!='CapCut'
@@ -1761,7 +1868,8 @@ class WindowsVision:
                     raise BridgeError('The guidance is not owned by the verified editor.')
                 if check_pixels:
                     latest = ImageGrab.grab(bbox=view.box.tuple(),all_screens=True)
-                    if latest.crop(box.tuple()).tobytes()!=view.image.crop(box.tuple()).tobytes():
+                    physical=view.physical(box)
+                    if latest.crop(physical.tuple()).tobytes()!=(view.raw_image or view.image).crop(physical.tuple()).tobytes():
                         raise BridgeError('The guidance changed since recognition.')
                 return point
             for label in labels:
@@ -1779,7 +1887,7 @@ class WindowsVision:
                 target = self.recognize_label(view,self.words(view,region,scale=4),'Export')
             except BridgeError:
                 with Image.open(Path(__file__).with_name('templates')/'capcut-9.4-export.png') as image:
-                    target = template_box(view.image,image,region)
+                    target = view_template_box(view,image,region)
             self.click_box(view,target)
             return 'export-dialog-requested'
         raise BridgeError('This visual editing action still requires native verification.')
@@ -1824,7 +1932,10 @@ class WindowsVision:
             candidate=' '.join(word.text for word in sorted(words,key=lambda word:word.box.left))
             if (not project or re.search(r'[<>:"/\\|?*\x00-\x1f]',candidate)
                     or not re.fullmatch(re.escape(project)+r'(?: ?\([1-9][0-9]*\))?',candidate,re.IGNORECASE)):
-                raise BridgeError('The export filename does not identify the active project.')
+                # A tight collision suffix can resemble another glyph in OCR.
+                # Verify the actual native field through the protected copy path;
+                # that path independently enforces the project-name contract.
+                return self.export_filename_copy(view,project)
             ink=identifier_box(words,candidate,85)
             if (ink.left<field.left+2 or ink.right>field.right-2
                     or ink.top<field.top+2 or ink.bottom>field.bottom-2):
@@ -1960,7 +2071,7 @@ class WindowsVision:
         frame_rate_label=f'{fps:g}fps'
         # The native settings pane remembers its scroll position. Scroll its
         # blank label/field gap, never a dropdown, before reading fixed rows.
-        self.scroll(view.box.left+440,view.box.top+260,8)
+        self.scroll(view.box.left+round(440*view.scale),view.box.top+round(260*view.scale),8)
         time.sleep(.3)
         view=self.capture()
         if win32gui.GetWindowText(view.handle)!=title or view.image.size!=(720,663):
@@ -1976,7 +2087,7 @@ class WindowsVision:
         # Select the directory on every export; a remembered truncated path is
         # never accepted as proof of destination.
         with Image.open(Path(__file__).with_name('templates')/'capcut-9.4-folder.png') as image:
-            folder_button = template_box(view.image,image,Box(670,120,710,156))
+            folder_button = view_template_box(view,image,Box(670,120,710,156))
         self.click_box(view,folder_button)
         folder_deadline = time.monotonic()+20
         while time.monotonic()<folder_deadline:
@@ -2013,13 +2124,13 @@ class WindowsVision:
             # 9.5 also has a measured local-only pane ending in Audio, GIF,
             # captions and copyright controls. Positively verify that layout;
             # never interpret an unreadable checkbox as disabled.
-            self.scroll(view.box.left+440,view.box.top+260,-8)
+            self.scroll(view.box.left+round(440*view.scale),view.box.top+round(260*view.scale),-8)
             time.sleep(.3)
             view=self.capture()
             if win32gui.GetWindowText(view.handle)!=title:
                 raise BridgeError('The export dialog changed during local footer verification.')
             self.verify_local_export_footer(view)
-            self.scroll(view.box.left+440,view.box.top+260,8)
+            self.scroll(view.box.left+round(440*view.scale),view.box.top+round(260*view.scale),8)
             time.sleep(.3)
             view=self.capture()
             if win32gui.GetWindowText(view.handle)!=title or view.image.size!=(720,663):
@@ -2089,25 +2200,10 @@ class WindowsVision:
 
     @backend
     def restore_measured_editor(self) -> None:
-        """Fit an already identified editor to the measured 900p frame.
-
-        Qt can reopen at the work-area bounds instead of its framed bounds.
-        Only the exact 1600x900 work area and native window are adapted.
-        """
-        import win32api
-        import win32gui
-        if self.require_profile('home')!=(9,5,0,4050):return
+        """Verify the current editor without changing its size or monitor."""
+        # Kept as an API compatibility hook. Never reshape an identified editor.
         view=self.capture()
-        if view.image.size!=(1600,900):return
-        work=win32api.GetMonitorInfo(win32api.MonitorFromWindow(view.handle,2))['Work']
-        if (work[2]-work[0],work[3]-work[1])!=(1600,900) or view.box.tuple()!=tuple(work):return
-        if self.foreground(False)!=view.handle or tuple(win32gui.GetWindowRect(view.handle))!=view.box.tuple():
-            raise BridgeError('The editor moved or lost focus before frame restoration.')
-        win32gui.MoveWindow(view.handle,work[0]-8,work[1]-8,1616,916,True)
-        time.sleep(.3)
-        fresh=self.capture()
-        if fresh.handle!=view.handle or fresh.box!=Box(work[0]-8,work[1]-8,work[2]+8,work[3]+8):
-            raise BridgeError('The measured editor frame could not be restored.')
+        self.point(view,self.geometry(view).toolbar)
 
     @backend
     def open(self, name: str) -> None:

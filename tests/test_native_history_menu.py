@@ -8,7 +8,9 @@ from capcut_windows.vision import WindowsVision,View,Box,Word
 
 @pytest.mark.parametrize('case',['valid','disabled','changed-project','project-after-menu','ocr-disagreement','bottom-extension','shifted-window'])
 def test_native_history_menu_rejects_uncertain_or_disabled_items(tmp_path,monkeypatch,case):
+    import win32api,win32gui,win32process
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda view:module.editor_geometry(view)
     image=Image.new('RGB',(1680,1050),'white')
     if case=='disabled':
         for x in range(250,280):
@@ -40,6 +42,10 @@ def test_native_history_menu_rejects_uncertain_or_disabled_items(tmp_path,monkey
     driver.words=words
     driver.click_box=lambda *args:clicks.append(phases[len(clicks)])
     driver.key=lambda *args:pytest.fail('Native menu history must avoid global shortcuts')
+    monkeypatch.setattr(win32api,'MonitorFromWindow',lambda *args:1)
+    monkeypatch.setattr(win32api,'GetMonitorInfo',lambda *args:{'Monitor':(3360,0,5040,1050)})
+    monkeypatch.setattr(win32gui,'GetWindowRect',lambda handle:view.box.tuple())
+    monkeypatch.setattr(win32process,'GetWindowThreadProcessId',lambda handle:(10,20))
     clock=iter(range(100))
     monkeypatch.setattr(module.time,'monotonic',lambda:next(clock))
     monkeypatch.setattr(module.time,'sleep',lambda *args:None)

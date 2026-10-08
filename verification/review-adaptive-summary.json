@@ -1,0 +1,10 @@
+{
+  "independent_review": "passed",
+  "material_findings_remaining": 0,
+  "fixed_findings": [
+    "Union every normal/hover toolbar candidate before uniqueness check",
+    "Union every play/pause candidate before uniqueness check"
+  ],
+  "final_shadow_review": "passed",
+  "final_shadow_targeted_tests": 61
+}

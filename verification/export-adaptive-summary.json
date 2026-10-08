@@ -1,0 +1,40 @@
+{
+  "exports": [
+    {
+      "fixture": "primary-exports",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration_seconds": 6,
+      "container_duration_seconds": 6.013991,
+      "decoded_frames": 144,
+      "full_decode_passed": true,
+      "sha256": "ce17ce5c3ab679cd335169e2d9aac4956fc2371799921480a2e0a30bb82b3128"
+    },
+    {
+      "fixture": "secondary-exports",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration_seconds": 6,
+      "container_duration_seconds": 6.013991,
+      "decoded_frames": 144,
+      "full_decode_passed": true,
+      "sha256": "921e7e9f361fd58ec7c44c6a750e9c2952dcdba94f3611795e0f1de9f697a5ea"
+    },
+    {
+      "fixture": "secondary-small-exports",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "duration_seconds": 6,
+      "container_duration_seconds": 6.013991,
+      "decoded_frames": 144,
+      "full_decode_passed": true,
+      "sha256": "101528c5d7f22c4a72417067a05c870d7f5e6fe88d279664b00d4e847dcc29eb"
+    }
+  ]
+}

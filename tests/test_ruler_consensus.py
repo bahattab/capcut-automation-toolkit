@@ -10,7 +10,9 @@ from capcut_windows.vision import WindowsVision, View, Box, Word
 @pytest.mark.parametrize('case',['occluded-wrong-third-digit','shifted-reading','one-reading'])
 def test_native_ruler_regression_requires_independent_consistent_three_anchor_readings(tmp_path,case):
     fixture=json.loads((Path(__file__).parent/'fixtures/native-ruler.json').read_text())
+    from capcut_windows.vision import editor_geometry
     driver=WindowsVision(Settings(tmp_path))
+    driver.geometry=lambda view:editor_geometry(view)
     def words(view,region,scale,contrast):
         row=next(row for row in fixture if row['scale']==scale and row['contrast']==contrast)
         selected=row['words']
