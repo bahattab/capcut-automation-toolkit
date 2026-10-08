@@ -1,5 +1,8 @@
 # CapCut Automation Toolkit for Windows
 
+Windows port with verified CapCut 9.5 workflows.
+
+
 [GitHub repository](https://github.com/bahattab/capcut-automation-toolkit)
 
 Windows port of [matt-j-penny/capcut-kit](https://github.com/matt-j-penny/capcut-kit), upstream commit `304c125b626cd35843dc0ba723547ee7ff54eee5`.
