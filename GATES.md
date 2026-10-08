@@ -16,4 +16,4 @@ Native acceptance is bounded to CapCut 9.5.0.4050 and the profile documented in 
 - [x] N3 â€” Composite file edits render correctly and full native saved state survives reopening.
 - [x] N4 â€” Final local export, decode/audio checks and original project preservation pass.
 - [x] N5 â€” Independent review, wheel/installed parity and final installed native smoke pass.
-- [ ] N6 â€” Publish to bahattab/capcut-automation-toolkit and verify remote commit and clean-clone hashes.
+- [x] N6 â€” Publish to bahattab/capcut-automation-toolkit and verify remote commit and clean-clone hashes. Evidence: verification/github-readback-900.json and source-manifest-900.json.
