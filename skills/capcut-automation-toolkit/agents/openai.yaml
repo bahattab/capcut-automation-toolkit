@@ -1,0 +1,6 @@
+interface:
+  display_name: "CapCut Automation Toolkit"
+  short_description: "Edit CapCut videos with verified Windows automation"
+  default_prompt: "Use $capcut-automation-toolkit to edit my video and verify the exported result."
+policy:
+  allow_implicit_invocation: true

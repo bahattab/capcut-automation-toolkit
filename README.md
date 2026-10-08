@@ -65,6 +65,12 @@ uv run capcut-bridge.py doctor
 
 `doctor` reports discovered prerequisites. It does not certify that CapCut starts or that every desktop command works.
 
+## Agent skill
+
+The portable [CapCut Automation Toolkit skill](skills/capcut-automation-toolkit/SKILL.md) supports any agent with file access and a Windows command runner. Its trigger phrases are **Edit** and **Edit vidoe** in a video-editing context; its explicit identifier is `$capcut-automation-toolkit`. A bare Edit request without video context needs clarification.
+
+Copy the complete `skills/capcut-automation-toolkit` folder into your agent's skill directory, keeping `agents`, `references` and `scripts` together. Read SKILL.md, then run its `scripts/setup.ps1` from PowerShell. Existing toolkit installations are reused; otherwise setup can clone this repository and install the CLI with uv/Python 3.12. CapCut, English Tesseract data, FFmpeg and FFprobe are required. The generic SKILL.md works independently of the optional OpenAI UI metadata. Native execution still requires Windows and the documented recognition scope.
+
 ## Paths
 
 Drafts default to `%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`. The executable is discovered under `%LOCALAPPDATA%\CapCut\Apps`. Windows drafts use `draft_content.json`; legacy `draft_info.json` is also read.

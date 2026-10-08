@@ -27,3 +27,9 @@ Native acceptance is bounded to CapCut 9.5.0.4050 and the profile documented in 
 - [x] A5 — Installed package parity, documentation and final GitHub clean-clone readback pass.
 
 Adaptive evidence: verification/native-adaptive-acceptance.json, tests-adaptive-summary.json, export-adaptive-summary.json, dpi-adaptive-summary.json and preservation-adaptive-summary.json. Installed package matches all 31 source/template files; independent review passed. A5 clean-clone publication readback passed; evidence: verification/github-readback-adaptive.json and source-manifest-adaptive.json.
+
+## Portable agent skill
+
+- [x] S1 — Complete portable package, exact display name and requested triggers; all four copies validated.
+- [x] S2 — Created SKILL.md reread; setup passed on this machine; shared/local copies hash matched and both shared CSV/Markdown indexes refreshed with one matching entry each.
+- [ ] S3 — Publish skill and verify GitHub clean-clone byte parity.

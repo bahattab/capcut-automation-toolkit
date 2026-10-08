@@ -1,0 +1,44 @@
+{
+  "skill": "capcut-automation-toolkit",
+  "display_name": "CapCut Automation Toolkit",
+  "requested_triggers": [
+    "Edit",
+    "Edit vidoe"
+  ],
+  "portable_package_files": 4,
+  "validated_copies": 4,
+  "installed_copies_hash_matched": 3,
+  "shared_index_pairs_refreshed": 2,
+  "matching_entry_per_index": 1,
+  "indexed_entries_per_csv": 5534,
+  "index_refresh_scope": "Changed-package metadata refreshed; existing package entries retained",
+  "created_skill_read_after_creation": true,
+  "setup_passed": true,
+  "setup_checks": [
+    "Windows",
+    "CLI help",
+    "CapCut discovery",
+    "English Tesseract data",
+    "FFmpeg",
+    "FFprobe"
+  ],
+  "native_edit_effect_verified_by_setup": false,
+  "files": [
+    {
+      "path": "SKILL.md",
+      "sha256": "b539d0cf74f826b5ac47d1d4d86acf69fdc267f1ba798e92db8b1fc1f242bcf6"
+    },
+    {
+      "path": "agents/openai.yaml",
+      "sha256": "cbcf3cef4ce71dec184cd284850dda18555155732250065ae8ac642023230b96"
+    },
+    {
+      "path": "references/commands.md",
+      "sha256": "5dbf115d7e67627cbb3c1309456fa2e8ce3bee7c21b37ad46eac345d36687170"
+    },
+    {
+      "path": "scripts/setup.ps1",
+      "sha256": "c260f689fadeab71f5bd5c61be2bb5484af846f054a3ba70e24f6dc5b83b0e72"
+    }
+  ]
+}
