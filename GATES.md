@@ -32,4 +32,4 @@ Adaptive evidence: verification/native-adaptive-acceptance.json, tests-adaptive-
 
 - [x] S1 — Complete portable package, exact display name and requested triggers; all four copies validated.
 - [x] S2 — Created SKILL.md reread; setup passed on this machine; shared/local copies hash matched and both shared CSV/Markdown indexes refreshed with one matching entry each.
-- [ ] S3 — Publish skill and verify GitHub clean-clone byte parity.
+- [x] S3 — Publish skill and verify GitHub clean-clone byte parity.
